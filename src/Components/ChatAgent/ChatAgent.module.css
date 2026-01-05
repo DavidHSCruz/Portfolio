@@ -1,0 +1,243 @@
+.wrapper {
+  position: fixed;
+  bottom: 50px;
+  right: 25px;
+  z-index: 1000;
+  font-family: 'Belanosima', sans-serif;
+}
+
+/* Botão de abrir */
+.toggleButton {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--cor-verde-escura);
+  color: var(--cor-2);
+  border: none;
+  box-shadow: var(--sombra-media);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 300ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    background: var(--cor-verde-hover);
+  }
+}
+
+.toggleButton.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0);
+}
+
+/* Janela do Chat */
+.chatWindow {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 320px;
+  height: 450px;
+  background-color: var(--cor-2); /* Fundo claro/escuro dependendo do tema */
+  border-radius: 12px;
+  box-shadow: var(--sombra-intensa);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: bottom right;
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.chatWindow.open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Header */
+.header {
+  background: var(--gradiente-verde);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.2rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+/* Área de Mensagens */
+.messagesArea {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--cor-2-clara);
+}
+
+/* Scrollbar fina para a área de mensagens */
+.messagesArea::-webkit-scrollbar {
+  width: 6px;
+}
+.messagesArea::-webkit-scrollbar-thumb {
+  background-color: var(--cor-verde);
+  border-radius: 3px;
+}
+
+/* Bolhas de mensagem */
+.message {
+  display: flex;
+  max-width: 85%;
+}
+
+.userMessage {
+  align-self: flex-end;
+}
+
+.agentMessage {
+  align-self: flex-start;
+}
+
+.bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.userMessage .bubble {
+  background-color: var(--cor-verde);
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.agentMessage .bubble {
+  background-color: var(--cor-2-escura); /* Um cinza claro ou escuro dependendo do tema */
+  color: var(--cor-1);
+  border-bottom-left-radius: 2px;
+}
+
+/* Sugestões */
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.suggestionChip {
+  background-color: var(--cor-2);
+  border: 1px solid var(--cor-verde);
+  color: var(--cor-verde);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.suggestionChip:hover {
+  background-color: var(--cor-verde);
+  color: white;
+}
+
+/* Input Area */
+.inputArea {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid var(--borda-escura);
+  background-color: var(--cor-2);
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--borda-escura);
+  background-color: var(--cor-2-clara);
+  color: var(--cor-1);
+  outline: none;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  border-color: var(--cor-verde);
+}
+
+.sendButton {
+  background-color: var(--cor-verde);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sendButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.sendButton:hover:not(:disabled) {
+  background-color: var(--cor-verde-hover);
+}
+
+/* Animação de digitação (...) */
+.typingDot {
+  animation: typing 1.4s infinite ease-in-out both;
+  margin: 0 1px;
+  font-weight: bold;
+}
+
+.typingDot:nth-child(1) { animation-delay: -0.32s; }
+.typingDot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+/* Responsividade para telas pequenas */
+@media (max-width: 480px) {
+  .chatWindow {
+    width: 90vw;
+    right: 5vw;
+    bottom: 20px;
+    height: 60vh;
+  }
+}

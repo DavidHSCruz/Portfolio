@@ -22,7 +22,7 @@
     height: 60%;
     padding: 1em;
     display: block;
-    z-index: 2;
+    z-index: 2001;
     &>button {
         font-family: 'Belanosima', sans-serif;
         position: absolute;

@@ -3,10 +3,10 @@ import styles from './Menu.module.css'
 import { FaLinkedin, FaGithub } from "react-icons/fa"
 import { BiAdjust } from "react-icons/bi"
 import LinkDestacado from 'Components/LinkDestacado'
-import LinkMenuWhatsApp from 'Components/LinkMenuWhatsApp'
 import { ModalContato } from 'Components/ModalContato'
 import { Logo } from 'Components/Logo/index'
 import gsap from 'gsap'
+import ChatAgent from 'Components/ChatAgent'
 
 export default function Menu() {
     const listMenu = [ 'HOME', 'PROJETOS', 'SOBRE MIM' ]
@@ -100,7 +100,9 @@ export default function Menu() {
             </section>
 
             <ModalContato contatoAberto={contatoAberto} setContatoAberto={setContatoAberto} />
-            <LinkMenuWhatsApp numeroWhats={numeroWhats} mensagemWhats={mensagemWhats} fixed />
+            <div>
+                <ChatAgent />
+            </div>
 
         </header>
     )

@@ -8,7 +8,7 @@
   --cor-verde: #059669;  /* Sucesso/confirmação */
 
   /* 🌗 Variações da cor 1 */
-  --cor-1-escura: #161b24; /* Fundo mais escuro */
+  --cor-1-escura: #202734; /* Fundo mais escuro */
   --cor-1-clara: #2b3445;  /* Fundo ligeiramente mais claro */
   --cor-1-transparente: rgba(32, 39, 52, 0.8); /* Fundo translúcido */
 
@@ -61,7 +61,7 @@
   --cor-1-transparente: rgba(244, 244, 244, 0.8); /* Fundo translúcido */
 
   /* ☀️ Variações da cor 2 */
-  --cor-2-escura: ##161b24; /* Tom de cinza claro */
+  --cor-2-escura: #202734; /* Tom de cinza claro */
   --cor-2-clara: #2b3445;  /* Branco puro */
   --cor-2-transparente: rgba(32, 39, 52, 0.8); /* Translúcido */
 
