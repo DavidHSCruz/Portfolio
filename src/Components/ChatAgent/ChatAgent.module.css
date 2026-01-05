@@ -6,6 +6,39 @@
   font-family: 'Belanosima', sans-serif;
 }
 
+.buttonWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tooltip (Balão de fala) */
+.tooltip {
+  position: absolute;
+  right: 40px; /* À esquerda do botão */
+  top: -20px;
+  background-color: var(--cor-1);
+  color: var(--cor-2);
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: var(--sombra-media);
+  white-space: nowrap;
+  font-size: 0.9rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(10px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  border: 1px solid var(--borda-escura);
+}
+
+.tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
 /* Botão de abrir */
 .toggleButton {
   width: 60px;

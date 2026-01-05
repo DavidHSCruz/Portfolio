@@ -11,6 +11,7 @@ export default function ChatAgent() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const messagesEndRef = useRef(null);
 
   const suggestions = [
@@ -26,6 +27,14 @@ export default function ChatAgent() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+    }
+    if(!isOpen) {
+      setTimeout(() => {
+        setShowTooltip(true);
+      }, 5000);
+      setTimeout(() => {
+        setShowTooltip(false);
+      }, 15000);
     }
   }, [messages, isOpen]);
 
@@ -59,13 +68,21 @@ export default function ChatAgent() {
   return (
     <div className={styles.wrapper}>
       {/* Botão flutuante para abrir/fechar */}
-      <button 
-        className={`${styles.toggleButton} ${isOpen ? styles.hidden : ''}`}
-        onClick={() => setIsOpen(true)}
-        aria-label="Abrir chat"
-      >
-        <IoLogoWhatsapp size={24} />
-      </button>
+      <div className={styles.buttonWrapper}>
+        <div className={`${styles.tooltip} ${showTooltip && !isOpen ? styles.visible : ''}`}>
+          Pergunte algo sobre o David!
+        </div>
+        <button 
+          className={`${styles.toggleButton} ${isOpen ? styles.hidden : ''}`}
+          onClick={() => {
+            setIsOpen(true);
+            setShowTooltip(false);
+          }}
+          aria-label="Abrir chat"
+        >
+          <IoLogoWhatsapp size={24} />
+        </button>
+      </div>
 
       {/* Janela do Chat */}
       <div className={`${styles.chatWindow} ${isOpen ? styles.open : ''}`}>
