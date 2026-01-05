@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000',
+  baseURL: 'https://portfolio-api-8n5s.onrender.com/' || 'http://localhost:3000',
   headers: { 'Content-Type': 'application/json' },
 });
 
