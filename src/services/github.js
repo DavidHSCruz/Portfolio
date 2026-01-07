@@ -5,6 +5,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-export function postChat(message) {
-  return api.post('/chat', { message }).then(res => res.data);
+export function getProjetos() {
+  return api.get('/github/user').then(res => res.data);
 }

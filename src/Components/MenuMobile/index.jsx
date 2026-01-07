@@ -4,6 +4,7 @@ import { BiAdjust } from "react-icons/bi"
 import { useEffect, useState } from 'react'
 import LinkDestacado from 'Components/LinkDestacado'
 import LinkMenuWhatsApp from 'Components/LinkMenuWhatsApp'
+import ChatAgent from 'Components/ChatAgent'
 
 export default function Menu() {
     const listMenu = [ 'HOME', 'PROJETOS', 'SOBRE MIM', 'CONTATO' ]
@@ -98,6 +99,10 @@ export default function Menu() {
                     </ul>
                 </nav>
             </section>
+            <div>
+                <ChatAgent />
+            </div>
+
         </header>
     )
 }

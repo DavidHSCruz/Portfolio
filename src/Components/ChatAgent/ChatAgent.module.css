@@ -3,7 +3,7 @@
   bottom: 50px;
   right: 25px;
   z-index: 1000;
-  font-family: 'Belanosima', sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .buttonWrapper {
@@ -45,7 +45,7 @@
   height: 60px;
   border-radius: 50%;
   background: var(--cor-verde-escura);
-  color: var(--cor-2);
+  color: #f4f4f4;
   border: none;
   box-shadow: var(--sombra-media);
   cursor: pointer;
@@ -70,8 +70,8 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 320px;
-  height: 450px;
+  width: 400px;
+  height: 600px;
   background-color: var(--cor-2); /* Fundo claro/escuro dependendo do tema */
   border-radius: 12px;
   box-shadow: var(--sombra-intensa);
@@ -162,6 +162,54 @@
   font-size: 0.95rem;
   line-height: 1.4;
   word-wrap: break-word;
+}
+
+/* Estilos Markdown dentro do bubble */
+.bubble p {
+  margin: 0 0 8px 0;
+}
+
+.bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.bubble ul, .bubble ol {
+  margin: 4px 0 8px 20px;
+  padding: 0;
+}
+
+.bubble li {
+  margin-bottom: 4px;
+}
+
+.bubble strong {
+  font-weight: 700;
+}
+
+.bubble em {
+  font-style: italic;
+}
+
+.bubble a {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.bubble code {
+  font-family: monospace;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Ajustes específicos por tipo de mensagem */
+.userMessage .bubble code {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.agentMessage .bubble code {
+  background-color: rgba(0, 0, 0, 0.08);
 }
 
 .userMessage .bubble {
@@ -266,11 +314,20 @@
 }
 
 /* Responsividade para telas pequenas */
-@media (max-width: 480px) {
+@media (max-width: 767px) {
   .chatWindow {
-    width: 90vw;
-    right: 5vw;
-    bottom: 20px;
-    height: 60vh;
+    width: 100dvw;
+    height: 100dvh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    z-index: 2000;
+  }
+  
+  .wrapper {
+    z-index: 2000; /* Garante que fique acima de tudo */
   }
 }

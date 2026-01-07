@@ -3,6 +3,7 @@ import styles from './ChatAgent.module.css';
 import { postChat } from 'services/agent';
 import { FaPaperPlane, FaTimes } from 'react-icons/fa';
 import { IoLogoWhatsapp } from "react-icons/io";
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatAgent() {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +55,7 @@ export default function ChatAgent() {
     setLoading(true);
 
     const result = await postChat(userMsg);
-
+    console.log(result);
     if (result) {
       setMessages(prev => [...prev, { role: 'agent', content: result }]);
     }
@@ -103,7 +104,7 @@ export default function ChatAgent() {
               className={`${styles.message} ${msg.role === 'user' ? styles.userMessage : styles.agentMessage}`}
             >
               <div className={styles.bubble}>
-                {msg.content}
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
               </div>
             </div>
           ))}
