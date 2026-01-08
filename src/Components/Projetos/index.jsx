@@ -1,4 +1,5 @@
 import Card from 'Components/Card'
+import ModalProjeto from 'Components/ModalProjeto'
 import styles from './Projetos.module.css'
 import { useEffect, useState } from 'react'
 import { getProjetos } from 'services/github'
@@ -7,6 +8,7 @@ import { BarLoader } from 'react-spinners'
 const Projetos = ({title}) => {
     const [projetos, setProjetos] = useState([])
     const [loading, setLoading] = useState(true)
+    const [selectedProject, setSelectedProject] = useState(null)
 
     useEffect(() => {
         async function getRepositories() {
@@ -38,13 +40,18 @@ const Projetos = ({title}) => {
                             img={!repo.private ? repo.image : `/imagens/Projetos/${repo.name}.png`}
                             tags={repo.tags}
                             privateRepo={repo.private}
-                            github={repo.url}
-                            to={repo.homepage}
-                            updated_at={repo.updated_at}
+                            onClick={() => setSelectedProject(repo)}
                         />
                     )}
                 </div>
             }
+
+            {selectedProject && (
+                <ModalProjeto 
+                    project={selectedProject}
+                    onClose={() => setSelectedProject(null)} 
+                />
+            )}
         </section>
     )
 }

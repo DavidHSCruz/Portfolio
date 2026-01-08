@@ -1,18 +1,8 @@
-import { Link } from 'react-router-dom';
 import styles from './Card.module.css';
-import { useMemo, useState } from 'react';
 import { TbLockFilled } from "react-icons/tb";
 
-export default function Card({ title, description: d, tags, img, to, github, updated_at, privateRepo }) {
-    const [hovered, setHovered] = useState(false);
-    const description = useMemo(() => {
-        if(hovered) {
-            return d;
-        }
-
-        return maxCharacters(d)
-    }, [hovered, d]);
-
+export default function Card({ title, description, tags, img, updated_at, privateRepo, onClick }) {
+    
     function maxCharacters(text, n=90) {
         if(text.length <= n) {
             return text;
@@ -23,12 +13,7 @@ export default function Card({ title, description: d, tags, img, to, github, upd
     return (
         <div 
             className={styles.card}
-            style={{height: !hovered ? '260px' : 'auto'}}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            to={to}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={onClick}
         >
             <div 
                 className={styles.img}
@@ -45,28 +30,19 @@ export default function Card({ title, description: d, tags, img, to, github, upd
                     }
                 </div>
                 
-                <p>{description}</p>
-                {hovered &&
-                    <div className={styles.links}>
-                        {github &&
-                            <Link to={github} target="_blank" rel="noopener noreferrer"><p>Ver no GitHub</p></Link>
-                        }
-                        {to &&
-                            <Link to={to} target="_blank" rel="noopener noreferrer"><p>Ver Projeto</p></Link>
-                        }
-                    </div>
-                }
+                <p>{maxCharacters(description)}</p>
+                
                 <div className={styles.tags}>
-                    {tags.map((tag, index) => (
+                    {tags.slice(0, 3).map((tag, index) => (
                         <div key={index}>
                             <p>{tag}</p>
                         </div>
                     ))
-                }
+                    }
+                    {tags.length > 3 && <div><p>+{tags.length - 3}</p></div>}
                 </div>
-                {hovered &&
-                    <p className={styles.updated_at}>Atualizado em: {new Date(updated_at).toLocaleDateString('pt-BR')}</p>
-                }
+                
+                <p className={styles.clickInfo}>Clique para ver mais detalhes</p>
             </div>
         </div>
     )

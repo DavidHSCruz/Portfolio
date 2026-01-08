@@ -14,9 +14,6 @@ export default function Menu() {
     const [noturno, setNoturno] = useState(tema__localStorage)
     const icon__tema = useRef(null)
     const [ contatoAberto, setContatoAberto ] = useState(false)
-    
-    const numeroWhats = '554199497870'
-    const mensagemWhats = 'Olá, adorei seu portfólio, vamos conversar?'
 
     const ran = useRef(false)
 
