@@ -5,6 +5,14 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-export function getProjetos() {
-  return api.get('/github/user').then(res => res.data);
+export async function getProjetos() {
+  try {
+    const res = await api.get('/github/user');
+    
+    return res.data;
+  } catch(error) {
+    console.error("Erro ao buscar projetos:", error);
+    
+    return [];
+  }
 }

@@ -12,7 +12,10 @@ export default function ChatAgent() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inputDisable, setInputDisable] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [contatoList, setContatoList] = useState(false);
+
   const messagesEndRef = useRef(null);
 
   const suggestions = [
@@ -53,17 +56,25 @@ export default function ChatAgent() {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
+    setInputDisable(true);
 
     const result = await postChat(userMsg);
-    console.log(result);
-    if (result) {
-      setMessages(prev => [...prev, { role: 'agent', content: result }]);
-    }
-    else {
+    setLoading(false);
+    setInputDisable(false);
+    
+    if (!result) {
       setMessages(prev => [...prev, { role: 'agent', content: 'Desculpe, ocorreu um erro ao tentar responder. Tente novamente mais tarde.' }]);
+      return;
     }
 
-    setLoading(false);
+    setMessages(prev => [...prev, { role: 'agent', content: result.content }]);
+    if(result.statusCode === 429) {
+      setContatoList(true);
+      setInputDisable(true);
+    }
+    if(result.content === '#contato') {
+      setContatoList(true);
+    }
   }
 
   return (
@@ -108,6 +119,25 @@ export default function ChatAgent() {
               </div>
             </div>
           ))}
+          {contatoList && 
+            <div className={styles.suggestions}>
+              <a 
+                className={styles.suggestionChip}
+                style={{ display: 'flex', alignItems: 'center', gap: '.5em' }}
+                href="https://wa.me/5541999497870?text=Olá%20David!%20Vim%20do%20seu%20portfólio,%20gostei%20muito%20do%20seu%20perfil."
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  if(!inputDisable) {
+                    setContatoList(false);
+                  }
+                }}
+              >
+                <IoLogoWhatsapp size={15} />
+                <p>Entrar em contato pelo WhatsApp</p>
+              </a>
+            </div>
+          }
           {loading && (
             <div className={`${styles.message} ${styles.agentMessage}`}>
               <div className={styles.bubble}>
@@ -125,6 +155,16 @@ export default function ChatAgent() {
                   {s}
                 </button>
               ))}
+              <a 
+                className={styles.suggestionChip}
+                style={{ display: 'flex', alignItems: 'center', gap: '.5em' }}
+                href="https://wa.me/5541999497870?text=Olá%20David!%20Vim%20do%20seu%20portfólio,%20gostei%20muito%20do%20seu%20perfil."
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IoLogoWhatsapp size={15} />
+                <p>Entrar em contato pelo WhatsApp</p>
+              </a>
             </div>
           )}
 
@@ -138,7 +178,7 @@ export default function ChatAgent() {
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder="Digite sua pergunta..."
-            disabled={loading}
+            disabled={inputDisable}
           />
           <button type="submit" className={styles.sendButton} disabled={loading || !input.trim()}>
             <FaPaperPlane />

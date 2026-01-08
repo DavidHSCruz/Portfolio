@@ -10,11 +10,11 @@ const Projetos = ({title}) => {
 
     useEffect(() => {
         async function getRepositories() {
-            const projetos = await getProjetos()
-            if(projetos.length === 0) return
-            
-            setProjetos(projetos)
-            setLoading(false)
+                const projetos = await getProjetos()
+                if(projetos.length === 0) return
+                
+                setProjetos(projetos)
+                setLoading(false)
         }
 
         getRepositories()
