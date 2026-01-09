@@ -89,12 +89,7 @@ export default function Menu() {
                             type="button"
                             onClick={ mudarTema }
                         >
-                            <BiAdjust
-                                className={styles.icon_tema}
-                            />
-
-                            <LinkMenuWhatsApp numeroWhats={numeroWhats} mensagemWhats={mensagemWhats} />
-
+                            <BiAdjust className={styles.icon_tema} />
                         </button>
                     </ul>
                 </nav>

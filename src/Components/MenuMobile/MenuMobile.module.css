@@ -33,7 +33,7 @@
 
         &>.navegacao {
             padding-left: 20px;
-            height: 100vh;
+            height: 100dvh;
             background: var(--cor-2);
             overflow: hidden;
             transition: 500ms;
@@ -55,11 +55,13 @@
                 
                 &>.redes_sociais {
                     display: flex;
+                    margin-left: 1em;
                 }
 
                 &>.botao_altera_tema {
                     width: 25px;
                     height: 25px;
+                    margin-left: 1em;
                 }
             }
         }
