@@ -1,46 +1,171 @@
 .trajetoria {
-    display: block;
-    font-size: 1.2em;
+    padding: 4em 0;
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
     text-align: center;
-    margin: auto;
-    width: 85%;
-    padding: 1px;
-
-    &>h2 {
-        font-size: 1.5em;
-        margin: 2em 0 5em 0;
-    }
-    &>p {
-        margin: 4em 0;
-        line-height: 2em;
-    }
 }
 
-@media(min-width: 426px) {
-    .trajetoria {
-        &>p {
-            width: 50%;
-        }
-    
-        &>p:nth-child(2), &>p:nth-child(4) {
-            text-align: end;
-        }
-    
-        &>p:nth-child(3), &>p:nth-child(5) {
-            text-align: start;
-            margin-left: 50%;
-        }
-    
-        &>p:nth-child(6) {
-            width: 100%;
-            margin: 6em 0 2em 0;
-            text-align: center;
-        }
-    }
+.trajetoria h2 {
+    font-size: 2.5em;
+    margin-bottom: 2em;
+    color: var(--cor-1);
+    position: relative;
+    display: inline-block;
 }
-@media(max-width: 425px) {
-    .trajetoria>p {
+
+.trajetoria h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 4px;
+    background-color: var(--cor-3);
+    border-radius: 2px;
+}
+
+.timeline {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Linha vertical central */
+.timeline::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    background-color: var(--cor-3);
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: -3px;
+    border-radius: 3px;
+}
+
+.container {
+    padding: 10px 40px;
+    position: relative;
+    background-color: inherit;
+    width: 50%;
+    box-sizing: border-box;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Ícone no centro */
+.iconBox {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    right: -25px;
+    background-color: var(--cor-2);
+    border: 4px solid var(--cor-3);
+    top: 15px;
+    border-radius: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--cor-3);
+    box-shadow: 0 0 0 4px var(--cor-2-clara);
+}
+
+.textBox {
+    padding: 20px 30px;
+    background-color: var(--cor-2-clara);
+    position: relative;
+    border-radius: 6px;
+    box-shadow: var(--sombra-media);
+    text-align: left;
+    transition: transform 0.3s;
+}
+
+.textBox:hover {
+    transform: translateY(-5px);
+}
+
+.textBox h3 {
+    margin-top: 0;
+    color: var(--cor-3);
+    margin-bottom: 10px;
+}
+
+.textBox p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* Left side (default for odd) */
+.container:nth-child(odd) {
+    left: 0;
+}
+
+/* Right side (even) */
+.container:nth-child(even) {
+    left: 50%;
+}
+
+.container:nth-child(even) .iconBox {
+    left: -25px;
+}
+
+/* Setas */
+.container:nth-child(odd) .textBox::after {
+    content: " ";
+    position: absolute;
+    top: 20px;
+    right: -15px;
+    border-width: 10px 0 10px 15px;
+    border-style: solid;
+    border-color: transparent transparent transparent var(--cor-2-clara);
+}
+
+.container:nth-child(even) .textBox::after {
+    content: " ";
+    position: absolute;
+    top: 20px;
+    left: -15px;
+    border-width: 10px 15px 10px 0;
+    border-style: solid;
+    border-color: transparent var(--cor-2-clara) transparent transparent;
+}
+
+/* Responsividade Mobile */
+@media screen and (max-width: 768px) {
+    .timeline::after {
+        left: 31px;
+    }
+
+    .container {
         width: 100%;
-        text-align: center;
+        padding-left: 70px;
+        padding-right: 1rem;
     }
+
+    .container:nth-child(odd), 
+    .container:nth-child(even) {
+        left: 0;
+    }
+
+    .container:nth-child(odd) .iconBox,
+    .container:nth-child(even) .iconBox {
+        left: 6px; /* 31px (line center) - 25px (half width) */
+        right: auto;
+    }
+
+    .container:nth-child(odd) .textBox::after,
+    .container:nth-child(even) .textBox::after {
+        left: -15px;
+        right: auto;
+        border-width: 10px 15px 10px 0;
+        border-color: transparent var(--cor-2-clara) transparent transparent;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }

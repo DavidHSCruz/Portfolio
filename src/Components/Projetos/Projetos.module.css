@@ -12,6 +12,7 @@
 
 .cards_component {
     display: flex;
+    padding: 0 1em;
     flex-wrap: wrap;
     justify-content: center;
     gap: 1em;
