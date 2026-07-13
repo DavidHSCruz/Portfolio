@@ -1,0 +1,151 @@
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1/1;
+
+    &>.boxMouseMove {
+        position: absolute;
+        left: 50%;
+        width: 80vw;
+        height: 100%;
+        transform: translateX(-50%);
+        pointer-events: none;
+        z-index: 2;
+
+        &>.fireflyTrailDot {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            width: 7px;
+            height: 7px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: #baffdf;
+            box-shadow: 0 0 7px #65f2b7, 0 0 14px #65f2b788;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 3;
+            will-change: left, top, opacity, transform;
+        }
+
+        &>.firefly {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            width: 32px;
+            height: 32px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            z-index: 4;
+            will-change: left, top, opacity;
+
+            &>.fireflyAura {
+                position: absolute;
+                inset: -36px;
+                border-radius: 50%;
+                background: radial-gradient(circle, #f4fff9b0 0%, #baffdf70 22%, #65f2b73d 46%, #65f2b719 70%, transparent 92%);
+                filter: blur(16px);
+                opacity: .28;
+                transform: scale(.8);
+                pointer-events: none;
+                will-change: opacity, transform;
+            }
+
+            &>.fireflyWingLeft,
+            &>.fireflyWingRight {
+                position: absolute;
+                top: 7px;
+                width: 11px;
+                height: 8px;
+                border: 1px solid #d9fff080;
+                background: #d9fff01f;
+                box-shadow: inset 0 0 5px #d9fff033;
+            }
+
+            &>.fireflyWingLeft {
+                left: 4px;
+                border-radius: 90% 30% 80% 20%;
+                transform-origin: right bottom;
+                animation: firefly-wing-left 120ms ease-in-out infinite alternate;
+            }
+
+            &>.fireflyWingRight {
+                right: 4px;
+                border-radius: 30% 90% 20% 80%;
+                transform-origin: left bottom;
+                animation: firefly-wing-right 120ms ease-in-out infinite alternate;
+            }
+
+            &>.fireflyGlow {
+                position: absolute;
+                inset: 8px;
+                border-radius: 50%;
+                background: #65f2b766;
+                box-shadow: 0 0 10px #65f2b7, 0 0 24px #65f2b799, 0 0 44px #65f2b755;
+                animation: firefly-glow 1.1s ease-in-out infinite alternate;
+            }
+
+            &>.fireflyCore {
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                width: 8px;
+                height: 8px;
+                border: 2px solid #ffffffcc;
+                border-radius: 50%;
+                background: #65f2b7;
+                box-shadow: 0 0 7px #ffffff, 0 0 16px #65f2b7;
+            }
+        }
+
+    }
+
+    &>.containerSVG {
+        background: transparent;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        overflow: visible;
+        width: 78%;
+        height: 90%;
+        z-index: 1;
+        pointer-events: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        width: min(100%, 34rem);
+
+        &>.containerSVG {
+            width: 82%;
+            height: 92%;
+        }
+    }
+}
+
+
+@keyframes firefly-wing-left {
+    from { transform: rotate(-18deg) scaleY(.75); }
+    to { transform: rotate(20deg) scaleY(1); }
+}
+
+@keyframes firefly-wing-right {
+    from { transform: rotate(18deg) scaleY(.75); }
+    to { transform: rotate(-20deg) scaleY(1); }
+}
+
+@keyframes firefly-glow {
+    from { opacity: .65; transform: scale(.8); }
+    to { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .firefly span { animation: none !important; }
+}

@@ -1,0 +1,672 @@
+import gsap from "gsap"
+import type { useGSAP } from "@gsap/react"
+import type { Dispatch, RefObject, SetStateAction } from "react"
+import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_RENDERING, AVATAR_TIMELINE_REPEAT, getAvatarInteractionBounds, getAvatarLightIntensity, getAvatarLightingState, getEyeReflectionState, getSurpriseReaction, nextAvatarMotionPhase, shouldAvatarBlink, shouldShowFirefly, type AvatarMotionPhase } from "./motion-state"
+
+const FIREFLY_CURSOR_CLASS = "avatar-firefly-active"
+const TRACKING_SELECTOR = ".hairTopPosition, .hairLeftPosition, .hairRightPosition, .earLeftPosition, .earRightPosition, .nosePosition, .glassesPosition, .eyebrowLeftPosition, .eyebrowRightPosition, .eyelidTopPosition, .eyelidBottomPosition, .eyesPosition, .teethTopPosition, .teethBottomPosition, .gumPosition, .jawPosition, .mouthPosition, .headPosition, .neckRotate, .pupilPosition"
+
+type ContextSafe = ReturnType<typeof useGSAP>["contextSafe"]
+type EarState = boolean | null
+type NumberSetter = (value: number) => void
+type MotionTarget = string | Element
+type QuickFactory = (target: MotionTarget, property: string, duration?: number) => NumberSetter
+type TimelineName = "ambient" | "blink" | "enter" | "idle" | "reset" | "surprise"
+
+interface SetupAvatarMotionOptions {
+    containerRef: RefObject<HTMLDivElement | null>
+    avatarRef: RefObject<SVGSVGElement | null>
+    boxAvatarRef: RefObject<HTMLDivElement | null>
+    lookAtRef: RefObject<HTMLDivElement | null>
+    setEarLeftTop: Dispatch<SetStateAction<EarState>>
+    contextSafe: ContextSafe
+}
+
+interface PointerMetrics {
+    clientX: number
+    clientY: number
+    dx: number
+    dy: number
+}
+
+interface PointerTracker {
+    update(metrics: PointerMetrics): void
+}
+
+interface PupilTracker {
+    eye: Element
+    pupil: Element
+    x: NumberSetter
+    y: NumberSetter
+}
+
+export function setupAvatarMotion({
+    containerRef,
+    avatarRef,
+    boxAvatarRef,
+    lookAtRef,
+    setEarLeftTop,
+    contextSafe,
+}: SetupAvatarMotionOptions): () => void {
+    const avatar = avatarRef.current
+    const boxAvatar = boxAvatarRef.current
+    const lookAt = lookAtRef.current
+
+    if (!avatar || !boxAvatar || !lookAt) return () => undefined
+
+    const select = gsap.utils.selector(containerRef)
+    const timelines: Record<TimelineName, gsap.core.Timeline | null> = {
+        ambient: null,
+        blink: null,
+        enter: null,
+        idle: null,
+        reset: null,
+        surprise: null,
+    }
+    const blink: { active: boolean; timeout: gsap.core.Tween | null; doubleTimeout: gsap.core.Tween | null } = {
+        active: false,
+        timeout: null,
+        doubleTimeout: null,
+    }
+    let phase: AvatarMotionPhase = "entering"
+    let lastPointerMetrics: PointerMetrics = { clientX: 0, clientY: 0, dx: 0, dy: 0 }
+    let pointerInside = false
+    let fireflyVisible = false
+
+    const targets: gsap.utils.SelectorFunc = select
+    const quick: QuickFactory = (target, property, duration = 0.28) => {
+        const selectedTargets = typeof target === "string" ? targets(target) : [target]
+
+        return (value: number) => {
+            gsap.to(selectedTargets, {
+                [property]: value,
+                duration,
+                ease: "power2.out",
+                overwrite: "auto",
+            })
+        }
+    }
+
+    setPose({ avatar, targets })
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        phase = "reduced"
+        gsap.set(avatar, { y: 0, visibility: "visible" })
+        return () => undefined
+    }
+
+    const tracker = createPointerTracker({ quick, targets })
+    const avatarShadowLayer = avatar.querySelector<SVGUseElement>("[data-avatar-shadow-layer]")
+    const avatarLightOverlay = avatar.querySelector<SVGUseElement>("[data-avatar-light-overlay]")
+    const avatarLightLuminosity = avatar.querySelector<SVGUseElement>("[data-avatar-light-luminosity]")
+    const avatarLightExposure = avatar.querySelector<SVGUseElement>("[data-avatar-light-exposure]")
+    const avatarFeatureEdges = avatar.querySelector<SVGGElement>("[data-avatar-feature-edges]")
+    const avatarLightLayers = Array.from(avatar.querySelectorAll<SVGElement>("[data-avatar-light-layer]"))
+    const avatarLightGradient = avatar.querySelector<SVGRadialGradientElement>("[data-firefly-light-gradient]")
+    const avatarEyeReflections = [
+        {
+            element: avatar.querySelector<SVGGElement>('[data-avatar-eye-reflection="left"]'),
+            center: AVATAR_EYE_REFLECTION.left,
+        },
+        {
+            element: avatar.querySelector<SVGGElement>('[data-avatar-eye-reflection="right"]'),
+            center: AVATAR_EYE_REFLECTION.right,
+        },
+    ]
+    const fireflyAura = lookAt.querySelector<HTMLElement>("[data-firefly-aura]")
+    const navigation = document.querySelector<HTMLElement>("header")
+    const trailDots = Array.from(boxAvatar.querySelectorAll<HTMLElement>("[data-firefly-trail]"))
+    const pointerSvgPoint = avatar.createSVGPoint()
+    const setCursorX = gsap.quickSetter(lookAt, "left", "px")
+    const setCursorY = gsap.quickSetter(lookAt, "top", "px")
+
+    const keepAvatarDark = () => {
+        if (!avatarShadowLayer) return
+
+        gsap.to(avatarShadowLayer, {
+            opacity: getAvatarLightingState(0).shadowOpacity,
+            duration: 0.35,
+            ease: "power2.out",
+            overwrite: "auto",
+        })
+    }
+
+    const updateFireflyScene = (
+        localX: number,
+        localY: number,
+        lightX: number,
+        lightY: number,
+        lightIntensity: number,
+    ) => {
+        if (!fireflyVisible) {
+            gsap.set(trailDots, { left: localX, top: localY, opacity: 0 })
+        }
+
+        trailDots.forEach((dot, index) => {
+            gsap.to(dot, {
+                left: localX,
+                top: localY,
+                opacity: Math.max(0.12, 0.62 - index * 0.09),
+                scale: Math.max(0.45, 1 - index * 0.1),
+                duration: 0.1 + index * 0.055,
+                ease: "power3.out",
+                overwrite: "auto",
+            })
+        })
+
+        const lighting = getAvatarLightingState(lightIntensity)
+
+        avatarEyeReflections.forEach(({ element, center }) => {
+            if (!element) return
+
+            const reflection = getEyeReflectionState({ x: lightX, y: lightY }, center)
+            gsap.to(element, {
+                x: reflection.offsetX,
+                y: reflection.offsetY,
+                opacity: reflection.opacity,
+                duration: AVATAR_EYE_REFLECTION.followDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        })
+
+        if (avatarLightGradient) {
+            gsap.to(avatarLightGradient, {
+                attr: {
+                    cx: lightX,
+                    cy: lightY,
+                    r: lighting.radius,
+                },
+                duration: AVATAR_LIGHT_RENDERING.followDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+
+        if (avatarLightOverlay) {
+            gsap.to(avatarLightOverlay, {
+                opacity: lighting.overlayOpacity,
+                duration: AVATAR_LIGHT_RENDERING.intensityDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+
+        if (avatarLightLuminosity) {
+            gsap.to(avatarLightLuminosity, {
+                opacity: lighting.luminosityOpacity,
+                duration: AVATAR_LIGHT_RENDERING.intensityDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+
+        if (avatarLightExposure) {
+            gsap.to(avatarLightExposure, {
+                opacity: lighting.exposureOpacity,
+                duration: AVATAR_LIGHT_RENDERING.intensityDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+
+        if (avatarFeatureEdges) {
+            gsap.to(avatarFeatureEdges, {
+                opacity: lighting.featureEdgeOpacity,
+                duration: AVATAR_LIGHT_RENDERING.intensityDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+
+        if (fireflyAura) {
+            gsap.to(fireflyAura, {
+                opacity: lighting.auraOpacity,
+                scale: lighting.auraScale,
+                duration: AVATAR_LIGHT_RENDERING.intensityDuration,
+                ease: AVATAR_LIGHT_RENDERING.ease,
+                overwrite: "auto",
+            })
+        }
+    }
+
+    const setFireflyVisible = (visible: boolean) => {
+        if (visible === fireflyVisible) return
+        fireflyVisible = visible
+        document.documentElement.classList.toggle(FIREFLY_CURSOR_CLASS, visible)
+        if (visible) keepAvatarDark()
+        else {
+            gsap.to(trailDots, { opacity: 0, duration: 0.14, overwrite: "auto" })
+            gsap.to(avatarLightLayers, { opacity: 0, duration: 0.12, overwrite: "auto" })
+            if (fireflyAura) {
+                gsap.to(fireflyAura, {
+                    opacity: 0.28,
+                    scale: 0.8,
+                    duration: 0.12,
+                    overwrite: "auto",
+                })
+            }
+        }
+        gsap.to(lookAt, {
+            autoAlpha: visible ? 1 : 0,
+            duration: visible ? 0.18 : 0.1,
+            ease: visible ? "back.out(2)" : "power2.out",
+            overwrite: true,
+        })
+    }
+
+    const stopBlink = () => {
+        blink.active = false
+        blink.timeout?.kill()
+        blink.doubleTimeout?.kill()
+        timelines.blink?.kill()
+        blink.timeout = null
+        blink.doubleTimeout = null
+        timelines.blink = null
+    }
+
+    const playBlink = () => {
+        timelines.blink?.kill()
+        timelines.blink = gsap.timeline()
+            .to(targets(".eyelidTopBlink"), { y: 15, duration: 0.1, ease: "power1.in" })
+            .to(targets(".eyelidBottomBlink"), { y: -15, duration: 0.1, ease: "power1.in" }, 0)
+            .to(targets(".eyelidTopBlink"), { y: 0, duration: 0.15, ease: "power1.out" }, "+=0.1")
+            .to(targets(".eyelidBottomBlink"), { y: 0, duration: 0.15, ease: "power1.out" }, "<")
+    }
+
+    const scheduleBlink = () => {
+        if (!blink.active) return
+        const delay = gsap.utils.random(2, 8, 0.1)
+
+        blink.timeout = gsap.delayedCall(delay, contextSafe(() => {
+            if (!blink.active) return
+            playBlink()
+
+            if (Math.random() < 0.1) {
+                blink.doubleTimeout = gsap.delayedCall(0.3, contextSafe(() => {
+                    if (blink.active) playBlink()
+                }))
+            }
+            scheduleBlink()
+        }))
+    }
+
+    const startBlink = () => {
+        if (blink.active || !shouldAvatarBlink(phase)) return
+        blink.active = true
+        scheduleBlink()
+    }
+
+    const killMainTimelines = () => {
+        timelines.idle?.kill()
+        timelines.reset?.kill()
+        timelines.surprise?.kill()
+    }
+
+    const resetExpression = () => {
+        timelines.reset?.kill()
+        timelines.reset = gsap.timeline({
+            defaults: { duration: 0.24, ease: "power2.out", overwrite: "auto" },
+        })
+            .to(targets(".eyeRight, .eyeLeft, .pupil"), { scaleX: 1, scaleY: 1 }, 0)
+            .to(targets(".head, .neck"), { x: 0, y: 0, rotate: 0 }, 0)
+            .to(targets(".eyebrowLeft, .eyebrowRight, .eyelidTop, .eyelidBottom"), { y: 0 }, 0)
+            .to(targets(".nose"), { scaleX: 1, scaleY: 1 }, 0)
+            .to(targets(".jaw, .mouth"), { x: 0, y: 0, scaleX: 0.5, scaleY: 0.5 }, 0)
+            .to(targets(".teethBottom, .tongue"), { x: 0, y: 0 }, 0)
+    }
+
+    const resetTrackingOffsets = () => {
+        gsap.killTweensOf(targets(TRACKING_SELECTOR))
+        timelines.reset?.kill()
+        timelines.reset = gsap.timeline({
+            defaults: { duration: 0.24, ease: "power2.out", overwrite: "auto" },
+        })
+            .to(targets(TRACKING_SELECTOR), { x: 0, y: 0 }, 0)
+            .to(targets(".hairLeftPosition, .hairRightPosition"), { scaleX: 1 }, 0)
+            .to(targets(".neckRotate"), { rotate: 0 }, 0)
+    }
+
+    const preserveFinalTrackingOffsets = () => {
+        gsap.getTweensOf(targets(TRACKING_SELECTOR)).forEach((tween) => {
+            tween.progress(1).kill()
+        })
+    }
+
+    const startIdle = contextSafe(() => {
+        killMainTimelines()
+        resetTrackingOffsets()
+        keepAvatarDark()
+        startBlink()
+
+        timelines.idle = gsap.timeline({
+            defaults: { ease: "power2.inOut", duration: 0.3 },
+            repeat: AVATAR_TIMELINE_REPEAT.idle,
+            repeatDelay: 1,
+        })
+            .to(targets(".head, .neck"), { x: 0, y: 0, rotate: 0, duration: 0.45 })
+            .to(targets(".pupilPosition"), { x: -6, y: 1, duration: 0.35 }, "<")
+            .to(targets(".eyebrowLeft, .eyebrowRight"), { y: 12 }, "<+0.9")
+            .to(targets(".pupil"), { scaleX: 0.55, scaleY: 0.55 }, "<")
+            .to(targets(".eyelidTop"), { y: 8 }, "<")
+            .to(targets(".eyelidBottom"), { y: -8 }, "<")
+            .to(targets(".nose"), { scaleY: 0.92, ease: "back.out(1.7)" }, "<")
+            .to(targets(".mouth, .jaw"), { y: -4, scaleX: 0.58, scaleY: 0.5, ease: "back.out(1.7)" }, "<")
+            .to(targets(".eyebrowLeft, .eyebrowRight, .eyelidTop, .eyelidBottom"), { y: 0, delay: 1.5, duration: 0.45 })
+            .to(targets(".pupil"), { scaleX: 1, scaleY: 1 }, "<")
+            .to(targets(".nose"), { scaleY: 1 }, "<")
+            .to(targets(".pupilPosition"), { x: 6, y: -2, duration: 0.35 }, "+=0.8")
+            .to(targets(".hairTopPosition"), { x: 8, y: -2 }, "<")
+            .to(targets(".hairLeftPosition, .hairRightPosition"), { y: 1 }, "<")
+            .to(targets(".hairLeftPosition"), { x: 6, scaleX: 1.12 }, "<")
+            .to(targets(".hairRightPosition"), { x: 0, scaleX: 0.88 }, "<")
+            .to(targets(".earLeftPosition"), { x: 6, y: 1 }, "<")
+            .to(targets(".earRightPosition"), { x: -10, y: 1 }, "<")
+            .to(targets(".nosePosition"), { x: 15, y: -4 }, "<")
+            .to(targets(".glassesPosition"), { x: 12, y: -3 }, "<")
+            .to(targets(".eyebrowLeftPosition"), { y: -2 }, "<")
+            .to(targets(".eyebrowRightPosition"), { y: -4 }, "<")
+            .to(targets(".eyelidTopPosition"), { y: -2 }, "<")
+            .to(targets(".eyelidBottomPosition"), { y: -1 }, "<")
+            .to(targets(".eyesPosition"), { x: 8, y: -2 }, "<")
+            .to(targets(".teethTopPosition, .teethBottomPosition, .gumPosition"), { x: 4, y: -1 }, "<")
+            .to(targets(".jawPosition, .mouthPosition"), { x: 8, y: -2 }, "<")
+            .to(targets(".headPosition"), { x: 2, y: -0.5 }, "<")
+            .to(targets(".neckRotate"), { rotate: 4 }, "<")
+            .to(targets(".teethBottom"), { x: 0, y: 15, ease: "back.out(1.7)" }, "<")
+            .to(targets(".tongue"), { x: -10, y: 10, ease: "back.out(1.7)" }, "<")
+            .to(targets(".eyebrowLeft, .eyebrowRight"), { y: -15 }, "<")
+            .to(targets(".head"), { keyframes: AVATAR_IDLE_WHISTLE_KEYFRAMES.head }, "<")
+            .to(targets(".mouth"), { keyframes: AVATAR_IDLE_WHISTLE_KEYFRAMES.mouth }, "<")
+            .to(targets(".jaw"), { keyframes: AVATAR_IDLE_WHISTLE_KEYFRAMES.jaw }, "<")
+            .to(targets(".mouth, .jaw"), {
+                x: -50,
+                scaleX: 0.1,
+                scaleY: 0.5,
+                duration: 0.5,
+                ease: "back.out(1.7)",
+            })
+            .to(targets(".mouth, .jaw"), { y: 20, duration: 1 })
+            .to(targets(".mouth"), {
+                x: 25,
+                y: 50,
+                scaleX: 1.3,
+                scaleY: 1,
+                ease: "back.out(1.7)",
+            })
+            .to(targets(".jaw"), {
+                x: 25,
+                y: 30,
+                scaleX: 1.3,
+                scaleY: 1.4,
+                ease: "back.out(1.7)",
+            }, "<")
+            .to(targets(".teethBottom"), { y: 25, ease: "back.out(1.7)" }, "<")
+            .to(targets(".tongue"), { x: 0, y: 20, ease: "back.out(1.7)" }, "<")
+            .to(targets(".head"), { y: 10, ease: "back.out(1.7)" }, "<")
+            .to(targets(".head, .neck"), { x: 0, y: 0, rotate: 0, delay: 1.2, duration: 0.45 })
+            .to(targets(TRACKING_SELECTOR), { x: 0, y: 0 }, "<")
+            .to(targets(".hairLeftPosition, .hairRightPosition"), { scaleX: 1 }, "<")
+            .to(targets(".neckRotate"), { rotate: 0 }, "<")
+            .to(targets(".eyebrowLeft, .eyebrowRight"), { y: 0 }, "<")
+            .to(targets(".mouth, .jaw"), { x: 0, y: 0, scaleX: 0.5, scaleY: 0.5 }, "<")
+            .to(targets(".teethBottom, .tongue"), { x: 0, y: 0 }, "<")
+    })
+
+    const startSurprise = contextSafe((metrics: PointerMetrics) => {
+        killMainTimelines()
+        stopBlink()
+        preserveFinalTrackingOffsets()
+
+        const reaction = getSurpriseReaction(metrics)
+
+        timelines.surprise = gsap.timeline({
+            defaults: { ease: "power2.inOut", duration: 0.3 },
+            repeat: AVATAR_TIMELINE_REPEAT.surprise,
+            onComplete: contextSafe(() => {
+                phase = nextAvatarMotionPhase(phase, "SURPRISE_COMPLETE")
+                if (phase === "idle") startIdle()
+            }),
+        })
+            .to(targets(".eyeRight, .eyeLeft"), { scaleX: 1.25, scaleY: 1.25, duration: 0.08 })
+            .to(targets(".eyelidTopBlink, .eyelidBottomBlink"), { y: 0, duration: 0.08 }, "<")
+            .to(targets(".pupil"), { scaleX: 0.55, scaleY: 0.55, ease: "elastic.out(1, .2)" }, "<")
+            .to(targets(".eyebrowLeft, .eyebrowRight"), { y: -10, duration: 0.08 }, "<")
+            .to(targets(".eyelidTop"), { y: -10, duration: 0.08 }, "<")
+            .to(targets(".nose"), { scaleY: 1 }, "<")
+            .to(targets(".mouth, .jaw"), { scaleX: 1, scaleY: 1.5, x: 10, ease: "elastic.out(1, .2)" }, "<")
+            .to(targets(".neck"), { rotate: reaction.neckRotate, y: reaction.neckY, duration: 0.1 }, "<")
+            .to(targets(".teethBottom, .tongue"), { y: 25, x: 14, ease: "elastic.out(2, .2)" }, "<")
+            .to(targets(".head"), { x: reaction.headX, y: reaction.headY, rotate: 0, ease: "elastic.out(1, .2)" }, "<")
+            .to(targets(".eyeRight, .eyeLeft, .pupil"), { scaleX: 1, scaleY: 1, delay: 0.8, duration: 0.24 })
+            .to(targets(".eyebrowLeft, .eyebrowRight, .eyelidTop"), { y: 0, duration: 0.24 }, "<")
+            .to(targets(".mouth, .jaw"), { x: 0, y: 0, scaleX: 0.5, scaleY: 0.5, duration: 0.24 }, "<")
+            .to(targets(".head, .neck"), { x: 0, y: 0, rotate: 0, duration: 0.24 }, "<")
+            .to(targets(".teethBottom, .tongue"), { x: 0, y: 0, duration: 0.24 }, "<")
+    })
+
+    const handlePointerMove = contextSafe((event: PointerEvent) => {
+        if (event.pointerType === "touch" || phase === "reduced") return
+
+        const box = boxAvatar.getBoundingClientRect()
+        const interactionBounds = getAvatarInteractionBounds(
+            box,
+            navigation?.getBoundingClientRect().bottom,
+        )
+        const isInside = event.clientX >= interactionBounds.left
+            && event.clientX <= interactionBounds.right
+            && event.clientY >= interactionBounds.top
+            && event.clientY <= interactionBounds.bottom
+
+        if (!isInside) {
+            if (pointerInside) handlePointerLeave()
+            return
+        }
+
+        pointerInside = true
+        const localX = event.clientX - box.left
+        const localY = event.clientY - box.top
+        setCursorX(localX)
+        setCursorY(localY)
+
+        if (phase !== "tracking") {
+            phase = nextAvatarMotionPhase(phase, "POINTER_MOVE")
+            killMainTimelines()
+            resetExpression()
+            startBlink()
+        }
+
+        setFireflyVisible(shouldShowFirefly(phase, pointerInside))
+        const avatarBounds = avatar.getBoundingClientRect()
+        const lightIntensity = getAvatarLightIntensity(
+            { x: event.clientX, y: event.clientY },
+            avatarBounds,
+        )
+        pointerSvgPoint.x = event.clientX
+        pointerSvgPoint.y = event.clientY
+        const screenMatrix = avatar.getScreenCTM()
+        const lightPoint = screenMatrix
+            ? pointerSvgPoint.matrixTransform(screenMatrix.inverse())
+            : {
+                x: ((event.clientX - avatarBounds.left) / avatarBounds.width) * 500,
+                y: ((event.clientY - avatarBounds.top) / avatarBounds.height) * 600,
+            }
+
+        updateFireflyScene(localX, localY, lightPoint.x, lightPoint.y, lightIntensity)
+
+        const centerX = box.left + box.width / 2
+        const centerY = box.top + box.height / 2 - 60
+        const dx = gsap.utils.clamp(-20, 20, (event.clientX - centerX) / 16)
+        const dy = gsap.utils.clamp(-20, 20, (event.clientY - centerY) / 16)
+        lastPointerMetrics = { clientX: event.clientX, clientY: event.clientY, dx, dy }
+
+        setEarLeftTop(dx < -7 ? false : dx > 7 ? true : null)
+        tracker.update(lastPointerMetrics)
+    })
+
+    const handlePointerLeave = contextSafe(() => {
+        pointerInside = false
+        setFireflyVisible(false)
+        if (phase !== "tracking") {
+            keepAvatarDark()
+            return
+        }
+
+        phase = nextAvatarMotionPhase(phase, "POINTER_LEAVE")
+        startSurprise(lastPointerMetrics)
+    })
+
+    window.addEventListener("pointermove", handlePointerMove)
+
+    startBlink()
+
+    const enterTimeline = gsap.timeline()
+    timelines.enter = enterTimeline
+    gsap.set(avatar, { y: 350 })
+    enterTimeline.to(avatar, {
+        y: 0,
+        duration: 1,
+        delay: 0.35,
+        ease: "elastic.out(1, 1)",
+        onComplete: contextSafe(() => {
+            const nextPhase = nextAvatarMotionPhase(phase, "ENTER_COMPLETE")
+            phase = nextPhase
+            if (nextPhase === "idle") startIdle()
+        }),
+    })
+
+    timelines.ambient = gsap.timeline({ repeat: -1, yoyo: true })
+        .to(targets(".noseBreathe"), { scaleX: 1.05, scaleY: 0.95, duration: 2, ease: "power2.inOut" })
+
+    return () => {
+        window.removeEventListener("pointermove", handlePointerMove)
+        setFireflyVisible(false)
+        document.documentElement.classList.remove(FIREFLY_CURSOR_CLASS)
+        gsap.set(avatar, { filter: "none" })
+        if (avatarShadowLayer) gsap.set(avatarShadowLayer, { opacity: getAvatarLightingState(0).shadowOpacity })
+        gsap.set(avatarLightLayers, { opacity: 0 })
+        if (fireflyAura) gsap.set(fireflyAura, { opacity: 0.28, scale: 0.8 })
+        stopBlink()
+        Object.values(timelines).forEach((timeline) => timeline?.kill())
+        gsap.killTweensOf(targets(TRACKING_SELECTOR))
+    }
+}
+
+function createPointerTracker({
+    quick,
+    targets,
+}: {
+    quick: QuickFactory
+    targets: gsap.utils.SelectorFunc
+}): PointerTracker {
+    const pupils: PupilTracker[] = targets<Element>(".eyePosition").flatMap((eye) => {
+        const pupil = eye.nextElementSibling
+        if (!pupil) return []
+
+        return [{
+            eye,
+            pupil,
+            x: quick(pupil, "x", 0.22),
+            y: quick(pupil, "y", 0.22),
+        }]
+    })
+    const to = {
+        hairTopX: quick(".hairTopPosition", "x"),
+        hairTopY: quick(".hairTopPosition", "y"),
+        hairSidesY: quick(".hairLeftPosition, .hairRightPosition", "y"),
+        hairLeftX: quick(".hairLeftPosition", "x"),
+        hairLeftScale: quick(".hairLeftPosition", "scaleX"),
+        hairRightX: quick(".hairRightPosition", "x"),
+        hairRightScale: quick(".hairRightPosition", "scaleX"),
+        earsY: quick(".earLeftPosition, .earRightPosition", "y"),
+        earLeftX: quick(".earLeftPosition", "x"),
+        earRightX: quick(".earRightPosition", "x"),
+        noseX: quick(".nosePosition", "x"),
+        noseY: quick(".nosePosition", "y"),
+        glassesX: quick(".glassesPosition", "x"),
+        glassesY: quick(".glassesPosition", "y"),
+        eyebrowLeftY: quick(".eyebrowLeftPosition", "y"),
+        eyebrowRightY: quick(".eyebrowRightPosition", "y"),
+        eyelidTopY: quick(".eyelidTopPosition", "y"),
+        eyelidBottomY: quick(".eyelidBottomPosition", "y"),
+        eyesX: quick(".eyesPosition", "x"),
+        eyesY: quick(".eyesPosition", "y"),
+        teethX: quick(".teethTopPosition, .teethBottomPosition, .gumPosition", "x"),
+        teethY: quick(".teethTopPosition, .teethBottomPosition, .gumPosition", "y"),
+        jawX: quick(".jawPosition, .mouthPosition", "x"),
+        jawY: quick(".jawPosition, .mouthPosition", "y"),
+        headX: quick(".headPosition", "x", 0.38),
+        headY: quick(".headPosition", "y", 0.38),
+        neckRotate: quick(".neckRotate", "rotation", 0.38),
+    }
+
+    return {
+        update({ clientX, clientY, dx, dy }: PointerMetrics) {
+            pupils.forEach(({ eye, pupil, x, y }) => {
+                const rect = eye.getBoundingClientRect()
+                let pupilX = (clientX - (rect.left + rect.width / 2)) / 20
+                let pupilY = (clientY - (rect.top + rect.height / 2)) / 20
+                const radius = Math.max(0, rect.width / 2 - pupil.clientWidth / 2)
+                const distance = Math.hypot(pupilX, pupilY)
+
+                if (distance > radius) {
+                    const angle = Math.atan2(pupilY, pupilX)
+                    pupilX = Math.cos(angle) * radius
+                    pupilY = Math.sin(angle) * radius
+                }
+                x(pupilX)
+                y(pupilY)
+            })
+
+            to.hairTopX(dx / 2)
+            to.hairTopY(dy / 3)
+            to.hairSidesY(-dy / 4)
+            to.hairLeftX(dx >= 0 ? dx / 3 : 0)
+            to.hairLeftScale(1 + dx / 60)
+            to.hairRightX(dx <= 0 ? dx / 3 : 0)
+            to.hairRightScale(1 - dx / 60)
+            to.earsY(-dy / 4)
+            to.earLeftX(dx >= 0 ? dx / 3 : -dx / 1.5)
+            to.earRightX(dx <= 0 ? dx / 3 : -dx / 1.5)
+            to.noseX(dx)
+            to.noseY(dy)
+            to.glassesX(dx / 1.2)
+            to.glassesY(dy / 1.2)
+            to.eyebrowLeftY(dy / 2)
+            to.eyebrowRightY(dy < 0 ? dy : dy / 1.5)
+            to.eyelidTopY(dy / 2)
+            to.eyelidBottomY(dy / 5)
+            to.eyesX(dx / 2)
+            to.eyesY(dy / 2)
+            to.teethX(dx / 4)
+            to.teethY(dy / 4)
+            to.jawX(dx / 2)
+            to.jawY(dy / 2)
+            to.headX(dx / 10)
+            to.headY(dy / 10)
+            to.neckRotate(dx / 5)
+        },
+    }
+}
+
+function setPose({
+    avatar,
+    targets,
+}: {
+    avatar: SVGSVGElement
+    targets: gsap.utils.SelectorFunc
+}): void {
+    targets<Element>(".eyePosition").forEach((eye) => {
+        const pupil = eye.nextElementSibling
+        if (pupil) gsap.set(pupil, { transformOrigin: "50% 50%", x: 0, y: 0 })
+    })
+
+    gsap.set(targets(".eyeRight, .eyeLeft, .pupil, .head"), { transformOrigin: "50% 50%" })
+    gsap.set(targets(".jaw, .mouth"), { transformOrigin: "100% 0%", x: 0, y: 0, scaleX: 0.5, scaleY: 0.5 })
+    gsap.set(targets(".jawPosition, .mouthPosition"), { transformOrigin: "100% 0%", x: 0, y: 0 })
+    gsap.set(targets(".neck, .neckRotate, .body"), { transformOrigin: "50% 90%", rotate: 0 })
+    gsap.set(targets(".hairLeft, .hairLeftPosition"), { transformOrigin: "left" })
+    gsap.set(targets(".hairRight, .hairRightPosition"), { transformOrigin: "right" })
+    gsap.set(targets(".nose, .nosePosition"), { transformOrigin: "50% 0%" })
+    gsap.set(avatar, { visibility: "visible" })
+}

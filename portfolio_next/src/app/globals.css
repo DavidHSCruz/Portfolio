@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #060a0c;
+  --color-panel: #0d1518;
+  --color-panel-soft: #132024;
+  --color-mint: #65f2b7;
+  --color-mint-bright: #a5ffd9;
+  --color-cloud: #e9f3ef;
+  --color-muted: #9bb0aa;
+  --font-sans: "Aptos", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Arial Black", "Aptos Display", sans-serif;
+  --shadow-glow: 0 0 80px rgb(101 242 183 / 0.12);
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-marquee: marquee 24s linear infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  @keyframes marquee {
+    to { transform: translateX(-50%); }
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--color-ink); }
+body {
+  margin: 0;
+  color: var(--color-cloud);
+  background:
+    radial-gradient(circle at 85% 8%, rgb(101 242 183 / 0.08), transparent 30rem),
+    radial-gradient(circle at 10% 40%, rgb(50 110 92 / 0.08), transparent 35rem),
+    var(--color-ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: .22;
+  background-image: linear-gradient(rgb(255 255 255 / .025) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+a, button, input, textarea { -webkit-tap-highlight-color: transparent; }
+a, button { outline: none; }
+:focus-visible { outline: 3px solid var(--color-mint); outline-offset: 4px; }
+::selection { background: var(--color-mint); color: var(--color-ink); }
+
+.container-shell { width: min(1180px, calc(100% - 2rem)); margin-inline: auto; }
+.eyebrow { color: var(--color-mint); text-transform: uppercase; letter-spacing: .2em; font-size: .75rem; font-weight: 800; }
+.display-title { font-family: var(--font-display); letter-spacing: -.045em; line-height: .96; text-wrap: balance; }
+.glass { background: rgb(13 21 24 / .72); border: 1px solid rgb(255 255 255 / .09); backdrop-filter: blur(18px); }
+.text-gradient { background: linear-gradient(110deg, var(--color-cloud), var(--color-mint)); background-clip: text; color: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+html.avatar-firefly-active,
+html.avatar-firefly-active * {
+  cursor: none !important;
+}
