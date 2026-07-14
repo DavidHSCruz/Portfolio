@@ -37,6 +37,20 @@ export const AVATAR_IDLE_WHISTLE_KEYFRAMES = {
   ],
 };
 
+export const AVATAR_NOSE_INTERACTION = {
+  collisionPadding: 10,
+  rearmPadding: 22,
+  cooldownMs: 450,
+} as const;
+
+export const AVATAR_NOSE_SWING_KEYFRAMES = [
+  { rotation: 9, duration: 0.1, ease: "power2.out" },
+  { rotation: -6, duration: 0.14, ease: "power1.inOut" },
+  { rotation: 3, duration: 0.13, ease: "power1.inOut" },
+  { rotation: -1.5, duration: 0.12, ease: "power1.inOut" },
+  { rotation: 0, duration: 0.16, ease: "power2.out" },
+];
+
 export const AVATAR_EDGE_LAYER_ORDER = [
   "body",
   "head",
@@ -119,6 +133,29 @@ export function getAvatarInteractionBounds(
     top,
     bottom: boxBounds.bottom,
   };
+}
+
+export function isPointerNearNose(
+  point: { x: number; y: number },
+  bounds: { left: number; right: number; top: number; bottom: number },
+  padding: number = AVATAR_NOSE_INTERACTION.collisionPadding,
+): boolean {
+  return point.x >= bounds.left - padding
+    && point.x <= bounds.right + padding
+    && point.y >= bounds.top - padding
+    && point.y <= bounds.bottom + padding;
+}
+
+export function canTriggerNoseCollision({
+  now,
+  lastHitAt,
+  armed,
+}: {
+  now: number;
+  lastHitAt: number;
+  armed: boolean;
+}): boolean {
+  return armed && now - lastHitAt >= AVATAR_NOSE_INTERACTION.cooldownMs;
 }
 
 export function getAvatarLightingState(rawIntensity: number) {

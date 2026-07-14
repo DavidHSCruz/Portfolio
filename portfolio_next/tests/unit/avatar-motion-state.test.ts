@@ -4,6 +4,8 @@ import {
   AVATAR_EDGE_RENDERING,
   AVATAR_EYE_REFLECTION,
   AVATAR_LIGHT_RENDERING,
+  AVATAR_NOSE_INTERACTION,
+  AVATAR_NOSE_SWING_KEYFRAMES,
   AVATAR_IDLE_WHISTLE_KEYFRAMES,
   AVATAR_UNIFIED_EDGE_LAYERS,
   AVATAR_TIMELINE_REPEAT,
@@ -11,6 +13,8 @@ import {
   getAvatarInteractionBounds,
   getAvatarLightIntensity,
   getEyeReflectionState,
+  canTriggerNoseCollision,
+  isPointerNearNose,
   getSurpriseReaction,
   nextAvatarMotionPhase,
   shouldAvatarBlink,
@@ -192,6 +196,26 @@ describe("avatar motion state", () => {
         AVATAR_EYE_REFLECTION.left,
       ),
     ).toEqual({ offsetX: 0, offsetY: 0, opacity: 0 });
+  });
+
+  it("detects the firefly touching the nose and rearms after leaving", () => {
+    const nose = { left: 120, right: 180, top: 140, bottom: 236 };
+
+    expect(isPointerNearNose({ x: 150, y: 180 }, nose)).toBe(true);
+    expect(isPointerNearNose({ x: 111, y: 180 }, nose)).toBe(true);
+    expect(isPointerNearNose({ x: 90, y: 180 }, nose)).toBe(false);
+    expect(canTriggerNoseCollision({ now: 1_000, lastHitAt: 0, armed: true })).toBe(true);
+    expect(canTriggerNoseCollision({ now: 1_100, lastHitAt: 1_000, armed: true })).toBe(false);
+    expect(canTriggerNoseCollision({ now: 2_000, lastHitAt: 1_000, armed: false })).toBe(false);
+  });
+
+  it("uses a short damped swing for the nose", () => {
+    expect(AVATAR_NOSE_INTERACTION).toEqual({
+      collisionPadding: 10,
+      rearmPadding: 22,
+      cooldownMs: 450,
+    });
+    expect(AVATAR_NOSE_SWING_KEYFRAMES.map(({ rotation }) => rotation)).toEqual([9, -6, 3, -1.5, 0]);
   });
 
   it("shows the firefly only inside the area and outside surprise", () => {

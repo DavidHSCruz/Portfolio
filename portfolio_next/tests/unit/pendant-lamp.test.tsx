@@ -11,6 +11,9 @@ describe("PendantLamp", () => {
 
     expect(lamp?.getAttribute("data-lamp-phase")).toBe("off");
     expect(lamp?.querySelector('[data-part="cable"]')).not.toBeNull();
+    expect(lamp?.querySelector('[data-part="cable-shadow"]')).not.toBeNull();
+    expect(lamp?.querySelector('[data-part="cable-thread"]')).not.toBeNull();
+    expect(lamp?.querySelector('[data-part="cable"]')?.getAttribute("data-cable-form")).toBe("braided");
     expect(lamp?.querySelector('[data-part="socket"]')).not.toBeNull();
     expect(lamp?.querySelector('[data-part="shade"]')).not.toBeNull();
     expect(lamp?.querySelector('[data-part="bulb"]')).not.toBeNull();

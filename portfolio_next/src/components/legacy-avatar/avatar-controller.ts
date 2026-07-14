@@ -1,7 +1,7 @@
 import gsap from "gsap"
 import type { useGSAP } from "@gsap/react"
 import type { Dispatch, RefObject, SetStateAction } from "react"
-import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_RENDERING, AVATAR_TIMELINE_REPEAT, getAvatarInteractionBounds, getAvatarLightIntensity, getAvatarLightingState, getEyeReflectionState, getSurpriseReaction, nextAvatarMotionPhase, shouldAvatarBlink, shouldShowFirefly, type AvatarMotionPhase } from "./motion-state"
+import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_RENDERING, AVATAR_NOSE_INTERACTION, AVATAR_NOSE_SWING_KEYFRAMES, AVATAR_TIMELINE_REPEAT, canTriggerNoseCollision, getAvatarInteractionBounds, getAvatarLightIntensity, getAvatarLightingState, getEyeReflectionState, getSurpriseReaction, isPointerNearNose, nextAvatarMotionPhase, shouldAvatarBlink, shouldShowFirefly, type AvatarMotionPhase } from "./motion-state"
 import { LAMP_INTERACTION, canTriggerLampCollision, getCreatureMode, getLampCollisionSide, getLampSwingKeyframes, isNearLampBulb, nextLampPhase, type CreatureMode, type LampPhase } from "./lamp-motion-state"
 
 const FIREFLY_CURSOR_CLASS = "avatar-firefly-active"
@@ -100,6 +100,9 @@ export function setupAvatarMotion({
     let activationTimer: number | null = null
     let lampSwingTimeline: gsap.core.Timeline | null = null
     let lampFlickerTimeline: gsap.core.Timeline | null = null
+    let noseCollisionArmed = true
+    let lastNoseHitAt = Number.NEGATIVE_INFINITY
+    let noseSwingTimeline: gsap.core.Timeline | null = null
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     const targets: gsap.utils.SelectorFunc = select
@@ -130,6 +133,7 @@ export function setupAvatarMotion({
     const avatarLightExposure = avatar.querySelector<SVGUseElement>("[data-avatar-light-exposure]")
     const avatarFeatureEdges = avatar.querySelector<SVGGElement>("[data-avatar-feature-edges]")
     const avatarLampEdges = avatar.querySelector<SVGUseElement>("[data-avatar-lamp-edges]")
+    const avatarNose = avatar.querySelector<SVGRectElement>(".nose")
     const avatarLightLayers = Array.from(avatar.querySelectorAll<SVGElement>("[data-avatar-light-layer]"))
     const avatarLightGradient = avatar.querySelector<SVGRadialGradientElement>("[data-firefly-light-gradient]")
     const avatarEyeReflections = [
@@ -350,6 +354,36 @@ export function setupAvatarMotion({
                 transformOrigin: "50% 0%",
                 overwrite: true,
             })
+    }
+
+    const startNoseSwing = () => {
+        if (reduceMotion || !avatarNose) return
+        noseSwingTimeline?.kill()
+        noseSwingTimeline = gsap.timeline()
+            .to(avatarNose, {
+                keyframes: AVATAR_NOSE_SWING_KEYFRAMES,
+                transformOrigin: "50% 0%",
+                overwrite: "auto",
+            })
+    }
+
+    const updateNoseInteraction = (event: PointerEvent) => {
+        if (!avatarNose || !fireflyVisible || creatureMode !== "firefly") return
+
+        const point = { x: event.clientX, y: event.clientY }
+        const noseBounds = avatarNose.getBoundingClientRect()
+        const now = performance.now()
+
+        if (
+            isPointerNearNose(point, noseBounds)
+            && canTriggerNoseCollision({ now, lastHitAt: lastNoseHitAt, armed: noseCollisionArmed })
+        ) {
+            startNoseSwing()
+            lastNoseHitAt = now
+            noseCollisionArmed = false
+        } else if (!isPointerNearNose(point, noseBounds, AVATAR_NOSE_INTERACTION.rearmPadding)) {
+            noseCollisionArmed = true
+        }
     }
 
     const activateLamp = contextSafe(() => {
@@ -729,6 +763,7 @@ export function setupAvatarMotion({
             }
 
         updateFireflyScene(localX, localY, lightPoint.x, lightPoint.y, lightIntensity)
+        updateNoseInteraction(event)
 
         const centerX = box.left + box.width / 2
         const centerY = box.top + box.height / 2 - 60
@@ -742,6 +777,7 @@ export function setupAvatarMotion({
 
     const handlePointerLeave = contextSafe(() => {
         pointerInside = false
+        noseCollisionArmed = true
         setFireflyVisible(false)
         if (phase !== "tracking") {
             keepAvatarDark()
@@ -781,6 +817,7 @@ export function setupAvatarMotion({
         activationTimer = null
         lampSwingTimeline?.kill()
         lampFlickerTimeline?.kill()
+        noseSwingTimeline?.kill()
         sceneControllerRef.current = null
         setFireflyVisible(false)
         document.documentElement.classList.remove(FIREFLY_CURSOR_CLASS)

@@ -38,9 +38,9 @@ export function PendantLamp({ className, phase, onActivate }: PendantLampProps) 
         >
           <defs>
             <linearGradient id="pendant-cable" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0" stopColor="#07110d" />
-              <stop offset="0.46" stopColor="#345c4d" />
-              <stop offset="1" stopColor="#07110d" />
+              <stop offset="0" stopColor="#08150f" />
+              <stop offset="0.46" stopColor="#6b9a86" />
+              <stop offset="1" stopColor="#08150f" />
             </linearGradient>
             <linearGradient id="pendant-shade" x1="0.12" x2="0.88" y1="0.06" y2="0.94">
               <stop offset="0" stopColor="#18382d" />
@@ -76,12 +76,32 @@ export function PendantLamp({ className, phase, onActivate }: PendantLampProps) 
               strokeOpacity="0.4"
             />
             <path
-              d="M130 -2V101"
+              d="M130 -42V101"
+              data-part="cable-shadow"
+              fill="none"
+              stroke="#020806"
+              strokeLinecap="round"
+              strokeOpacity="0.78"
+              strokeWidth="10"
+            />
+            <path
+              d="M130 -42V101"
+              data-cable-form="braided"
               data-part="cable"
               fill="none"
               stroke="url(#pendant-cable)"
               strokeLinecap="round"
-              strokeWidth="7"
+              strokeWidth="6"
+            />
+            <path
+              d="M130 -42V101"
+              data-part="cable-thread"
+              fill="none"
+              stroke="#c5f5df"
+              strokeDasharray="2 7"
+              strokeLinecap="round"
+              strokeOpacity="0.34"
+              strokeWidth="1.5"
             />
             <rect
               x="114"
