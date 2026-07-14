@@ -38,15 +38,20 @@ describe("interactive avatar lamp scene", () => {
     expect(container.querySelector("[data-creature-mode=fly]")).not.toBeNull();
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect((container.querySelector('[data-part="beam"]') as SVGElement).style.opacity).toBe("1");
-    expect(
-      Number.parseFloat((container.querySelector("[data-avatar-lamp-edges]") as SVGElement).style.opacity),
-    ).toBeGreaterThan(0.8);
+    const lampEdgeOpacity = Number.parseFloat(
+      (container.querySelector("[data-avatar-lamp-edges]") as SVGElement).style.opacity,
+    );
+    expect(lampEdgeOpacity).toBeGreaterThan(0.35);
+    expect(lampEdgeOpacity).toBeLessThan(0.6);
 
     await act(async () => {
       vi.advanceTimersByTime(2_000);
     });
 
     expect(document.documentElement.dataset.theme).toBe("light");
+    expect(
+      Number.parseFloat((container.querySelector("[data-avatar-lamp-edges]") as SVGElement).style.opacity),
+    ).toBe(0);
     fireEvent.click(screen.getByRole("button", { name: /Apagar lumin/ }));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(container.querySelector("[data-creature-mode=firefly]")).not.toBeNull();

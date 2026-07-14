@@ -14,7 +14,7 @@ export function PendantLamp({ className, phase, onActivate }: PendantLampProps) 
     <div className={className} data-avatar-pendant-lamp data-lamp-phase={phase}>
       <svg
         aria-hidden="true"
-        className={`pointer-events-none absolute left-1/2 top-[64%] z-0 h-[185%] w-[185%] -translate-x-1/2 origin-[50%_0%] transition-opacity duration-500 ${isOn ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute left-1/2 top-[64%] z-0 h-[185%] w-[185%] -translate-x-1/2 origin-[50%_0%] ${isOn ? "opacity-100" : "opacity-0"}`}
         data-lamp-swing
         data-part="beam"
         focusable="false"

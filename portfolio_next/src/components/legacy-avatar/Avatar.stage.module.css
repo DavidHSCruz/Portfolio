@@ -5,6 +5,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1/1;
+    isolation: isolate;
 
     &>.pendantLamp {
         position: absolute;
@@ -16,9 +17,12 @@
         pointer-events: none;
         transform: translateY(-100px) scale(1.2);
         transform-origin: 50% 0;
+        z-index: 3;
     }
 
     &[data-creature-mode="fly"] {
+        --fly-body-color: #07110d;
+
         .fireflyTrailDot,
         .fireflyAura {
             opacity: 0 !important;
@@ -26,7 +30,7 @@
 
         .fireflyGlow {
             inset: 9px 7px 8px;
-            background: #000;
+            background: var(--fly-body-color);
             box-shadow: none;
             opacity: 1 !important;
             animation: none;
@@ -37,17 +41,17 @@
             left: 10px;
             width: 12px;
             height: 10px;
-            border: 1px solid #000;
+            border: 1px solid #020604;
             border-radius: 55% 45% 60% 40%;
-            background: #000;
+            background: var(--fly-body-color);
             box-shadow: none;
         }
 
         .fireflyWingLeft,
         .fireflyWingRight {
-            border-color: #50645c99;
-            background: #dbe7e14a;
-            box-shadow: inset 0 0 4px #ffffff42;
+            border-color: #183129aa;
+            background: #0c1b1670;
+            box-shadow: inset 0 0 3px #4f6b5e22;
         }
     }
 
@@ -58,7 +62,7 @@
         height: 100%;
         transform: translateX(-50%);
         pointer-events: none;
-        z-index: 2;
+        z-index: 4;
 
         &>.fireflyTrailDot {
             position: absolute;

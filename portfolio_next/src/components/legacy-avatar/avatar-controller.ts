@@ -5,6 +5,7 @@ import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_REND
 import { LAMP_INTERACTION, canTriggerLampCollision, getCreatureMode, getLampCollisionSide, getLampSwingKeyframes, isNearLampBulb, nextLampPhase, type CreatureMode, type LampPhase } from "./lamp-motion-state"
 
 const FIREFLY_CURSOR_CLASS = "avatar-firefly-active"
+const LAMP_AVATAR_EDGE_OPACITY = 0.46
 const TRACKING_SELECTOR = ".hairTopPosition, .hairLeftPosition, .hairRightPosition, .earLeftPosition, .earRightPosition, .nosePosition, .glassesPosition, .eyebrowLeftPosition, .eyebrowRightPosition, .eyelidTopPosition, .eyelidBottomPosition, .eyesPosition, .teethTopPosition, .teethBottomPosition, .gumPosition, .jawPosition, .mouthPosition, .headPosition, .neckRotate, .pupilPosition"
 
 type ContextSafe = ReturnType<typeof useGSAP>["contextSafe"]
@@ -128,6 +129,7 @@ export function setupAvatarMotion({
     const avatarLightLuminosity = avatar.querySelector<SVGUseElement>("[data-avatar-light-luminosity]")
     const avatarLightExposure = avatar.querySelector<SVGUseElement>("[data-avatar-light-exposure]")
     const avatarFeatureEdges = avatar.querySelector<SVGGElement>("[data-avatar-feature-edges]")
+    const avatarLampEdges = avatar.querySelector<SVGUseElement>("[data-avatar-lamp-edges]")
     const avatarLightLayers = Array.from(avatar.querySelectorAll<SVGElement>("[data-avatar-light-layer]"))
     const avatarLightGradient = avatar.querySelector<SVGRadialGradientElement>("[data-firefly-light-gradient]")
     const avatarEyeReflections = [
@@ -379,6 +381,9 @@ export function setupAvatarMotion({
                 })
             }
             gsap.to(avatarLightLayers, { opacity: 0, duration, overwrite: true })
+            if (avatarLampEdges) {
+                gsap.to(avatarLampEdges, { opacity: 0, duration, ease: "power2.out", overwrite: true })
+            }
             if (avatarShadowLayer) {
                 gsap.to(avatarShadowLayer, {
                     opacity: getAvatarLightingState(0).shadowOpacity,
@@ -414,7 +419,8 @@ export function setupAvatarMotion({
         if (fireflyAura) gsap.to(fireflyAura, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
 
         const duration = reduceMotion ? 0 : 0.48
-        if (lampBeam) gsap.to(lampBeam, { opacity: 1, duration, ease: "power2.out", overwrite: true })
+        if (lampBeam) gsap.set(lampBeam, { opacity: 1 })
+        if (avatarLampEdges) gsap.set(avatarLampEdges, { opacity: LAMP_AVATAR_EDGE_OPACITY })
         if (lampBulbGlow) gsap.to(lampBulbGlow, { opacity: 0.94, duration, ease: "power2.out", overwrite: true })
         gsap.to(avatarLightLayers, { opacity: 0, duration, overwrite: true })
         if (avatarShadowLayer) gsap.to(avatarShadowLayer, { opacity: 0.18, duration, ease: "power2.out", overwrite: true })
@@ -426,6 +432,9 @@ export function setupAvatarMotion({
             setLampPhase(lampPhase)
             activateLightTheme()
             gsap.to(avatarLightLayers, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
+            if (avatarLampEdges) {
+                gsap.to(avatarLampEdges, { opacity: 0, duration: reduceMotion ? 0 : 0.28, overwrite: true })
+            }
             activationTimer = null
         }), LAMP_INTERACTION.activationDelayMs)
     })
@@ -477,6 +486,7 @@ export function setupAvatarMotion({
         gsap.set(lampBeam, { opacity: 1 })
         gsap.set(lampBulbGlow, { opacity: 0.94 })
         gsap.set(avatarLightLayers, { opacity: 0 })
+        if (avatarLampEdges) gsap.set(avatarLampEdges, { opacity: 0 })
         if (avatarShadowLayer) gsap.set(avatarShadowLayer, { opacity: 0.18 })
         gsap.set(avatar, { filter: "brightness(1.12) contrast(1.06)" })
     }
@@ -777,6 +787,7 @@ export function setupAvatarMotion({
         gsap.set(avatar, { filter: "none" })
         if (avatarShadowLayer) gsap.set(avatarShadowLayer, { opacity: getAvatarLightingState(0).shadowOpacity })
         gsap.set(avatarLightLayers, { opacity: 0 })
+        if (avatarLampEdges) gsap.set(avatarLampEdges, { opacity: 0 })
         if (fireflyAura) gsap.set(fireflyAura, { opacity: 0.28, scale: 0.8 })
         stopBlink()
         Object.values(timelines).forEach((timeline) => timeline?.kill())

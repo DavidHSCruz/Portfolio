@@ -395,6 +395,29 @@ export const Avatar = () => {
                         >
                             <rect width="500" height="600" fill="url(#firefly_light_gradient)" />
                         </mask>
+                        <linearGradient
+                            id="lamp_edge_gradient"
+                            x1="250"
+                            y1="60"
+                            x2="250"
+                            y2="600"
+                            gradientUnits="userSpaceOnUse"
+                        >
+                            <stop offset="0" stopColor="#ffffff" />
+                            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.95" />
+                            <stop offset="1" stopColor="#ffffff" stopOpacity="0.18" />
+                        </linearGradient>
+                        <mask
+                            id="lamp_light_mask"
+                            maskUnits="userSpaceOnUse"
+                            x="0"
+                            y="0"
+                            width="500"
+                            height="600"
+                            style={{maskType: "alpha"}}
+                        >
+                            <rect width="500" height="600" fill="url(#lamp_edge_gradient)" />
+                        </mask>
                         <filter
                             id="firefly_exposure_color"
                             x="-5%"
@@ -543,7 +566,7 @@ export const Avatar = () => {
                             pointerEvents: "none",
                         }}
                     >
-                        <g transform="translate(100 50)">
+                        <g id="avatar_edge_shapes" transform="translate(100 50)">
                             <g
                                 data-avatar-edge-layer="body"
                                 data-avatar-unified-edge="body"
@@ -847,6 +870,22 @@ export const Avatar = () => {
                             </g>
                         </g>
                     </g>
+                    <use
+                        aria-hidden="true"
+                        data-avatar-lamp-edges
+                        href="#avatar_edge_shapes"
+                        mask="url(#lamp_light_mask)"
+                        opacity="0"
+                        fill="none"
+                        stroke="#dffff0"
+                        strokeWidth="2.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{
+                            mixBlendMode: "screen",
+                            pointerEvents: "none",
+                        }}
+                    />
                 </svg>
             </div>
         </div>

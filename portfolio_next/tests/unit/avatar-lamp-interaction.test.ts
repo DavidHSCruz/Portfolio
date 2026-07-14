@@ -12,6 +12,10 @@ describe("avatar lamp interaction wiring", () => {
       join(process.cwd(), "src/components/legacy-avatar/index.tsx"),
       "utf8",
     );
+    const styles = readFileSync(
+      join(process.cwd(), "src/components/legacy-avatar/Avatar.stage.module.css"),
+      "utf8",
+    );
 
     expect(controller).toContain("getLampCollisionSide");
     expect(controller).toContain("canTriggerLampCollision");
@@ -29,5 +33,7 @@ describe("avatar lamp interaction wiring", () => {
     expect(scene).toContain('id="lamp_light_mask"');
     expect(scene).toContain("data-avatar-lamp-edges");
     expect(scene).toContain("sceneControllerRef.current?.activateLamp()");
+    expect(styles).toContain("--fly-body-color: #07110d");
+    expect(styles).toContain("background: var(--fly-body-color)");
   });
 });
