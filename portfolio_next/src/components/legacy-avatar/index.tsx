@@ -4,6 +4,10 @@ import { useGSAP } from "@gsap/react"
 import styles from "./Avatar.stage.module.css"
 import { setupAvatarMotion } from "./avatar-controller"
 import { AVATAR_LIGHT_RENDERING } from "./motion-state"
+import { PendantLamp } from "../pendant-lamp"
+import { useSiteTheme } from "../site-theme"
+import type { CreatureMode, LampPhase } from "./lamp-motion-state"
+import type { AvatarSceneController } from "./avatar-controller"
 
 gsap.registerPlugin(useGSAP)
 
@@ -13,6 +17,10 @@ export const Avatar = () => {
     const boxAvatarRef = useRef<HTMLDivElement>(null)
     const lookAtRef = useRef<HTMLDivElement>(null)
     const [earLeftTop, setEarLeftTop] = useState<boolean | null>(null)
+    const { activateDarkTheme, activateLightTheme, theme } = useSiteTheme()
+    const [lampPhase, setLampPhase] = useState<LampPhase>(() => theme === "light" ? "on" : "off")
+    const [creatureMode, setCreatureMode] = useState<CreatureMode>(() => theme === "light" ? "fly" : "firefly")
+    const sceneControllerRef = useRef<AvatarSceneController | null>(null)
 
     useGSAP((_, contextSafe) => {
         if (!contextSafe) return
@@ -23,6 +31,12 @@ export const Avatar = () => {
             boxAvatarRef,
             lookAtRef,
             setEarLeftTop,
+            setLampPhase,
+            setCreatureMode,
+            sceneControllerRef,
+            initialTheme: theme,
+            activateDarkTheme,
+            activateLightTheme,
             contextSafe,
         })
     }, {
@@ -84,7 +98,12 @@ export const Avatar = () => {
     }
 
     return (
-        <div ref={containerRef} className={styles.container}>
+        <div ref={containerRef} className={styles.container} data-creature-mode={creatureMode} data-lamp-phase={lampPhase}>
+            <PendantLamp
+                className={styles.pendantLamp}
+                phase={lampPhase}
+                onActivate={() => sceneControllerRef.current?.activateLamp()}
+            />
             <div 
                 ref={boxAvatarRef}
                 className={styles.boxMouseMove}

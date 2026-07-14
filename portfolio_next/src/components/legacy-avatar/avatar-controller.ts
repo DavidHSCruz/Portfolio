@@ -2,6 +2,7 @@ import gsap from "gsap"
 import type { useGSAP } from "@gsap/react"
 import type { Dispatch, RefObject, SetStateAction } from "react"
 import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_RENDERING, AVATAR_TIMELINE_REPEAT, getAvatarInteractionBounds, getAvatarLightIntensity, getAvatarLightingState, getEyeReflectionState, getSurpriseReaction, nextAvatarMotionPhase, shouldAvatarBlink, shouldShowFirefly, type AvatarMotionPhase } from "./motion-state"
+import { LAMP_INTERACTION, canTriggerLampCollision, getCreatureMode, getLampCollisionSide, getLampSwingKeyframes, isNearLampBulb, nextLampPhase, type CreatureMode, type LampPhase } from "./lamp-motion-state"
 
 const FIREFLY_CURSOR_CLASS = "avatar-firefly-active"
 const TRACKING_SELECTOR = ".hairTopPosition, .hairLeftPosition, .hairRightPosition, .earLeftPosition, .earRightPosition, .nosePosition, .glassesPosition, .eyebrowLeftPosition, .eyebrowRightPosition, .eyelidTopPosition, .eyelidBottomPosition, .eyesPosition, .teethTopPosition, .teethBottomPosition, .gumPosition, .jawPosition, .mouthPosition, .headPosition, .neckRotate, .pupilPosition"
@@ -13,12 +14,22 @@ type MotionTarget = string | Element
 type QuickFactory = (target: MotionTarget, property: string, duration?: number) => NumberSetter
 type TimelineName = "ambient" | "blink" | "enter" | "idle" | "reset" | "surprise"
 
+export interface AvatarSceneController {
+    activateLamp(): void
+}
+
 interface SetupAvatarMotionOptions {
     containerRef: RefObject<HTMLDivElement | null>
     avatarRef: RefObject<SVGSVGElement | null>
     boxAvatarRef: RefObject<HTMLDivElement | null>
     lookAtRef: RefObject<HTMLDivElement | null>
     setEarLeftTop: Dispatch<SetStateAction<EarState>>
+    setLampPhase: Dispatch<SetStateAction<LampPhase>>
+    setCreatureMode: Dispatch<SetStateAction<CreatureMode>>
+    sceneControllerRef: RefObject<AvatarSceneController | null>
+    initialTheme: "dark" | "light"
+    activateDarkTheme: () => void
+    activateLightTheme: () => void
     contextSafe: ContextSafe
 }
 
@@ -46,13 +57,22 @@ export function setupAvatarMotion({
     boxAvatarRef,
     lookAtRef,
     setEarLeftTop,
+    setLampPhase,
+    setCreatureMode,
+    sceneControllerRef,
+    initialTheme,
+    activateDarkTheme,
+    activateLightTheme,
     contextSafe,
 }: SetupAvatarMotionOptions): () => void {
     const avatar = avatarRef.current
     const boxAvatar = boxAvatarRef.current
     const lookAt = lookAtRef.current
 
-    if (!avatar || !boxAvatar || !lookAt) return () => undefined
+    if (!avatar || !boxAvatar || !lookAt) {
+        sceneControllerRef.current = null
+        return () => undefined
+    }
 
     const select = gsap.utils.selector(containerRef)
     const timelines: Record<TimelineName, gsap.core.Timeline | null> = {
@@ -72,6 +92,14 @@ export function setupAvatarMotion({
     let lastPointerMetrics: PointerMetrics = { clientX: 0, clientY: 0, dx: 0, dy: 0 }
     let pointerInside = false
     let fireflyVisible = false
+    let lampPhase: LampPhase = initialTheme === "light" ? "on" : "off"
+    let creatureMode: CreatureMode = getCreatureMode(lampPhase)
+    let collisionArmed = true
+    let lastLampHitAt = Number.NEGATIVE_INFINITY
+    let activationTimer: number | null = null
+    let lampSwingTimeline: gsap.core.Timeline | null = null
+    let lampFlickerTimeline: gsap.core.Timeline | null = null
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     const targets: gsap.utils.SelectorFunc = select
     const quick: QuickFactory = (target, property, duration = 0.28) => {
@@ -89,10 +117,9 @@ export function setupAvatarMotion({
 
     setPose({ avatar, targets })
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (reduceMotion) {
         phase = "reduced"
         gsap.set(avatar, { y: 0, visibility: "visible" })
-        return () => undefined
     }
 
     const tracker = createPointerTracker({ quick, targets })
@@ -119,9 +146,22 @@ export function setupAvatarMotion({
     const pointerSvgPoint = avatar.createSVGPoint()
     const setCursorX = gsap.quickSetter(lookAt, "left", "px")
     const setCursorY = gsap.quickSetter(lookAt, "top", "px")
+    const scene = containerRef.current
+    const lampShade = scene?.querySelector<SVGGraphicsElement>("[data-part=shade]") ?? null
+    const lampBulb = scene?.querySelector<SVGGraphicsElement>("[data-lamp-bulb]") ?? null
+    const lampBulbGlow = scene?.querySelector<SVGCircleElement>("[data-lamp-bulb-glow]") ?? null
+    const lampBulbGlass = scene?.querySelector<SVGPathElement>("[data-lamp-bulb-glass]") ?? null
+    const lampBeam = scene?.querySelector<SVGElement>("[data-part=beam]") ?? null
+    const lampSwingTargets = scene ? Array.from(scene.querySelectorAll<Element>("[data-lamp-swing]")) : []
+    const lampFlickerTargets: SVGElement[] = []
+    if (lampBulbGlow) lampFlickerTargets.push(lampBulbGlow)
+    if (lampBulbGlass) lampFlickerTargets.push(lampBulbGlass)
+
+    setLampPhase(lampPhase)
+    setCreatureMode(creatureMode)
 
     const keepAvatarDark = () => {
-        if (!avatarShadowLayer) return
+        if (!avatarShadowLayer || lampPhase === "activating" || lampPhase === "on") return
 
         gsap.to(avatarShadowLayer, {
             opacity: getAvatarLightingState(0).shadowOpacity,
@@ -142,17 +182,32 @@ export function setupAvatarMotion({
             gsap.set(trailDots, { left: localX, top: localY, opacity: 0 })
         }
 
-        trailDots.forEach((dot, index) => {
-            gsap.to(dot, {
-                left: localX,
-                top: localY,
-                opacity: Math.max(0.12, 0.62 - index * 0.09),
-                scale: Math.max(0.45, 1 - index * 0.1),
-                duration: 0.1 + index * 0.055,
-                ease: "power3.out",
-                overwrite: "auto",
+        if (creatureMode === "fly") {
+            gsap.set(trailDots, { left: localX, top: localY, opacity: 0 })
+        } else {
+            trailDots.forEach((dot, index) => {
+                gsap.to(dot, {
+                    left: localX,
+                    top: localY,
+                    opacity: Math.max(0.12, 0.62 - index * 0.09),
+                    scale: Math.max(0.45, 1 - index * 0.1),
+                    duration: 0.1 + index * 0.055,
+                    ease: "power3.out",
+                    overwrite: "auto",
+                })
             })
-        })
+        }
+
+        if (lampPhase === "activating" || lampPhase === "on") {
+            gsap.to(avatarLightLayers, { opacity: 0, duration: 0.16, overwrite: "auto" })
+            avatarEyeReflections.forEach(({ element }) => {
+                if (element) gsap.to(element, { opacity: 0, duration: 0.16, overwrite: "auto" })
+            })
+            if (creatureMode === "fly" && fireflyAura) {
+                gsap.to(fireflyAura, { opacity: 0, duration: 0.16, overwrite: "auto" })
+            }
+            return
+        }
 
         const lighting = getAvatarLightingState(lightIntensity)
 
@@ -234,7 +289,7 @@ export function setupAvatarMotion({
         if (visible === fireflyVisible) return
         fireflyVisible = visible
         document.documentElement.classList.toggle(FIREFLY_CURSOR_CLASS, visible)
-        if (visible) keepAvatarDark()
+        if (visible && creatureMode === "firefly") keepAvatarDark()
         else {
             gsap.to(trailDots, { opacity: 0, duration: 0.14, overwrite: "auto" })
             gsap.to(avatarLightLayers, { opacity: 0, duration: 0.12, overwrite: "auto" })
@@ -255,8 +310,178 @@ export function setupAvatarMotion({
         })
     }
 
-    const stopBlink = () => {
-        blink.active = false
+    const stopLampFlicker = () => {
+        lampFlickerTimeline?.kill()
+        lampFlickerTimeline = null
+        if (lampBulbGlass) {
+            gsap.to(lampBulbGlass, { opacity: 1, duration: reduceMotion ? 0 : 0.16, overwrite: true })
+        }
+        if (lampBulbGlow && lampPhase !== "activating" && lampPhase !== "on") {
+            gsap.to(lampBulbGlow, { opacity: 0.02, duration: reduceMotion ? 0 : 0.16, overwrite: true })
+        }
+    }
+
+    const startLampFlicker = () => {
+        if (lampFlickerTargets.length === 0 || lampPhase === "activating" || lampPhase === "on") return
+        lampFlickerTimeline?.kill()
+
+        if (reduceMotion) {
+            gsap.set(lampFlickerTargets, { opacity: 0.72 })
+            return
+        }
+
+        lampFlickerTimeline = gsap.timeline({ repeat: -1 })
+            .to(lampFlickerTargets, { opacity: 0.72, duration: 0.12, ease: "power2.out" })
+            .to(lampFlickerTargets, { opacity: 0.18, duration: 0.08, ease: "power1.in" })
+            .to(lampFlickerTargets, { opacity: 0.92, duration: 0.18, ease: "power2.out" })
+            .to(lampFlickerTargets, { opacity: 0.24, duration: 0.28, ease: "power1.inOut" })
+            .to(lampFlickerTargets, { opacity: 0.62, duration: 0.14, ease: "power2.out" })
+            .to(lampFlickerTargets, { opacity: 0.12, duration: 0.34, ease: "power1.inOut" })
+    }
+
+    const startLampSwing = (side: "left" | "right") => {
+        if (reduceMotion || lampSwingTargets.length === 0) return
+        lampSwingTimeline?.kill()
+        lampSwingTimeline = gsap.timeline()
+            .to(lampSwingTargets, {
+                keyframes: getLampSwingKeyframes(side),
+                transformOrigin: "50% 0%",
+                overwrite: true,
+            })
+    }
+
+    const activateLamp = contextSafe(() => {
+        if (lampPhase === "activating") return
+
+        if (lampPhase === "on") {
+            lampPhase = nextLampPhase(lampPhase, "DEACTIVATE")
+            creatureMode = getCreatureMode(lampPhase)
+            setLampPhase(lampPhase)
+            setCreatureMode(creatureMode)
+            stopLampFlicker()
+            activateDarkTheme()
+
+            const duration = reduceMotion ? 0 : 0.42
+            if (lampBeam) {
+                gsap.to(lampBeam, {
+                    opacity: 0,
+                    duration,
+                    ease: "power2.out",
+                    overwrite: true,
+                })
+            }
+            if (lampBulbGlow) {
+                gsap.to(lampBulbGlow, {
+                    opacity: 0.02,
+                    duration,
+                    ease: "power2.out",
+                    overwrite: true,
+                })
+            }
+            gsap.to(avatarLightLayers, { opacity: 0, duration, overwrite: true })
+            if (avatarShadowLayer) {
+                gsap.to(avatarShadowLayer, {
+                    opacity: getAvatarLightingState(0).shadowOpacity,
+                    duration,
+                    ease: "power2.out",
+                    overwrite: true,
+                })
+            }
+            gsap.to(avatar, {
+                filter: "none",
+                duration,
+                ease: "power2.out",
+                overwrite: "auto",
+            })
+            if (fireflyAura) {
+                gsap.to(fireflyAura, {
+                    opacity: 0.28,
+                    scale: 0.8,
+                    duration,
+                    overwrite: true,
+                })
+            }
+            return
+        }
+
+        lampPhase = nextLampPhase(lampPhase, "ACTIVATE")
+        setLampPhase(lampPhase)
+        creatureMode = "fly"
+        setCreatureMode(creatureMode)
+        stopLampFlicker()
+
+        gsap.to(trailDots, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
+        if (fireflyAura) gsap.to(fireflyAura, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
+
+        const duration = reduceMotion ? 0 : 0.48
+        if (lampBeam) gsap.to(lampBeam, { opacity: 1, duration, ease: "power2.out", overwrite: true })
+        if (lampBulbGlow) gsap.to(lampBulbGlow, { opacity: 0.94, duration, ease: "power2.out", overwrite: true })
+        gsap.to(avatarLightLayers, { opacity: 0, duration, overwrite: true })
+        if (avatarShadowLayer) gsap.to(avatarShadowLayer, { opacity: 0.18, duration, ease: "power2.out", overwrite: true })
+        gsap.to(avatar, { filter: "brightness(1.12) contrast(1.06)", duration, ease: "power2.out", overwrite: "auto" })
+
+        if (activationTimer !== null) window.clearTimeout(activationTimer)
+        activationTimer = window.setTimeout(contextSafe(() => {
+            lampPhase = nextLampPhase(lampPhase, "ACTIVATION_COMPLETE")
+            setLampPhase(lampPhase)
+            activateLightTheme()
+            gsap.to(avatarLightLayers, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
+            activationTimer = null
+        }), LAMP_INTERACTION.activationDelayMs)
+    })
+
+    const updateLampInteraction = (event: PointerEvent) => {
+        if (!lampShade || !lampBulb || lampPhase === "activating") return
+
+        const point = { x: event.clientX, y: event.clientY }
+        const shadeBounds = lampShade.getBoundingClientRect()
+        const side = getLampCollisionSide(point, shadeBounds)
+        const now = performance.now()
+
+        if (side && canTriggerLampCollision({ now, lastHitAt: lastLampHitAt, armed: collisionArmed })) {
+            startLampSwing(side)
+            lastLampHitAt = now
+            collisionArmed = false
+        } else if (
+            point.x < shadeBounds.left - LAMP_INTERACTION.collisionBand
+            || point.x > shadeBounds.right + LAMP_INTERACTION.collisionBand
+            || point.y < shadeBounds.top - LAMP_INTERACTION.collisionBand
+            || point.y > shadeBounds.bottom + LAMP_INTERACTION.collisionBand
+        ) {
+            collisionArmed = true
+        }
+
+        if (lampPhase === "on") return
+
+        const bulbBounds = lampBulb.getBoundingClientRect()
+        const bulbCenter = {
+            x: bulbBounds.left + bulbBounds.width / 2,
+            y: bulbBounds.top + bulbBounds.height / 2,
+        }
+        const isNear = isNearLampBulb(point, bulbCenter)
+
+        if (isNear && lampPhase === "off") {
+            lampPhase = nextLampPhase(lampPhase, "NEAR_ENTER")
+            setLampPhase(lampPhase)
+            startLampFlicker()
+        } else if (!isNear && lampPhase === "near") {
+            lampPhase = nextLampPhase(lampPhase, "NEAR_LEAVE")
+            setLampPhase(lampPhase)
+            stopLampFlicker()
+        }
+    }
+
+    sceneControllerRef.current = { activateLamp }
+
+    if (lampPhase === "on") {
+        gsap.set(lampBeam, { opacity: 1 })
+        gsap.set(lampBulbGlow, { opacity: 0.94 })
+        gsap.set(avatarLightLayers, { opacity: 0 })
+        if (avatarShadowLayer) gsap.set(avatarShadowLayer, { opacity: 0.18 })
+        gsap.set(avatar, { filter: "brightness(1.12) contrast(1.06)" })
+    }
+
+    const stopBlink = () => {        blink.active = false
         blink.timeout?.kill()
         blink.doubleTimeout?.kill()
         timelines.blink?.kill()
@@ -468,6 +693,7 @@ export function setupAvatarMotion({
         const localY = event.clientY - box.top
         setCursorX(localX)
         setCursorY(localY)
+        updateLampInteraction(event)
 
         if (phase !== "tracking") {
             phase = nextAvatarMotionPhase(phase, "POINTER_MOVE")
@@ -516,30 +742,36 @@ export function setupAvatarMotion({
         startSurprise(lastPointerMetrics)
     })
 
-    window.addEventListener("pointermove", handlePointerMove)
+    if (!reduceMotion) {
+        window.addEventListener("pointermove", handlePointerMove)
+        startBlink()
 
-    startBlink()
+        const enterTimeline = gsap.timeline()
+        timelines.enter = enterTimeline
+        gsap.set(avatar, { y: 350 })
+        enterTimeline.to(avatar, {
+            y: 0,
+            duration: 1,
+            delay: 0.35,
+            ease: "elastic.out(1, 1)",
+            onComplete: contextSafe(() => {
+                const nextPhase = nextAvatarMotionPhase(phase, "ENTER_COMPLETE")
+                phase = nextPhase
+                if (nextPhase === "idle") startIdle()
+            }),
+        })
 
-    const enterTimeline = gsap.timeline()
-    timelines.enter = enterTimeline
-    gsap.set(avatar, { y: 350 })
-    enterTimeline.to(avatar, {
-        y: 0,
-        duration: 1,
-        delay: 0.35,
-        ease: "elastic.out(1, 1)",
-        onComplete: contextSafe(() => {
-            const nextPhase = nextAvatarMotionPhase(phase, "ENTER_COMPLETE")
-            phase = nextPhase
-            if (nextPhase === "idle") startIdle()
-        }),
-    })
-
-    timelines.ambient = gsap.timeline({ repeat: -1, yoyo: true })
-        .to(targets(".noseBreathe"), { scaleX: 1.05, scaleY: 0.95, duration: 2, ease: "power2.inOut" })
+        timelines.ambient = gsap.timeline({ repeat: -1, yoyo: true })
+            .to(targets(".noseBreathe"), { scaleX: 1.05, scaleY: 0.95, duration: 2, ease: "power2.inOut" })
+    }
 
     return () => {
         window.removeEventListener("pointermove", handlePointerMove)
+        if (activationTimer !== null) window.clearTimeout(activationTimer)
+        activationTimer = null
+        lampSwingTimeline?.kill()
+        lampFlickerTimeline?.kill()
+        sceneControllerRef.current = null
         setFireflyVisible(false)
         document.documentElement.classList.remove(FIREFLY_CURSOR_CLASS)
         gsap.set(avatar, { filter: "none" })

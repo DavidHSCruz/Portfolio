@@ -6,6 +6,51 @@
     width: 100%;
     aspect-ratio: 1/1;
 
+    &>.pendantLamp {
+        position: absolute;
+        top: -62%;
+        left: 22%;
+        width: 56%;
+        aspect-ratio: 260 / 330;
+        overflow: visible;
+        pointer-events: none;
+        transform: translateY(-100px) scale(1.2);
+        transform-origin: 50% 0;
+    }
+
+    &[data-creature-mode="fly"] {
+        .fireflyTrailDot,
+        .fireflyAura {
+            opacity: 0 !important;
+        }
+
+        .fireflyGlow {
+            inset: 9px 7px 8px;
+            background: #000;
+            box-shadow: none;
+            opacity: 1 !important;
+            animation: none;
+        }
+
+        .fireflyCore {
+            top: 11px;
+            left: 10px;
+            width: 12px;
+            height: 10px;
+            border: 1px solid #000;
+            border-radius: 55% 45% 60% 40%;
+            background: #000;
+            box-shadow: none;
+        }
+
+        .fireflyWingLeft,
+        .fireflyWingRight {
+            border-color: #50645c99;
+            background: #dbe7e14a;
+            box-shadow: inset 0 0 4px #ffffff42;
+        }
+    }
+
     &>.boxMouseMove {
         position: absolute;
         left: 50%;
@@ -109,13 +154,34 @@
         background: transparent;
         display: flex;
         justify-content: center;
-        align-items: center;
+        align-items: flex-end;
         position: absolute;
+        bottom: 0;
+        left: 50%;
         overflow: visible;
-        width: 78%;
-        height: 90%;
+        width: 90%;
+        height: 100%;
+        transform: translateX(-50%);
         z-index: 1;
         pointer-events: none;
+
+        &>svg {
+            width: 100%;
+            height: auto;
+            max-width: 460px;
+            max-height: none;
+            aspect-ratio: 5 / 6;
+        }
+    }
+}
+
+@media (max-width: 1023px) {
+    .container {
+        &>.pendantLamp {
+            top: -56%;
+            left: 24%;
+            width: 52%;
+        }
     }
 }
 
@@ -123,9 +189,15 @@
     .container {
         width: min(100%, 34rem);
 
+        &>.pendantLamp {
+            top: -64%;
+            left: 22%;
+            width: 56%;
+        }
+
         &>.containerSVG {
-            width: 82%;
-            height: 92%;
+            width: 88%;
+            height: 100%;
         }
     }
 }
