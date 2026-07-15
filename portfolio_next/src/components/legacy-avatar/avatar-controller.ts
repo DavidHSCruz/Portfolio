@@ -3,6 +3,7 @@ import type { useGSAP } from "@gsap/react"
 import type { Dispatch, RefObject, SetStateAction } from "react"
 import { AVATAR_EYE_REFLECTION, AVATAR_IDLE_WHISTLE_KEYFRAMES, AVATAR_LIGHT_RENDERING, AVATAR_NOSE_INTERACTION, AVATAR_NOSE_SWING_KEYFRAMES, AVATAR_TIMELINE_REPEAT, canTriggerNoseCollision, getAvatarInteractionBounds, getAvatarLightIntensity, getAvatarLightingState, getEyeReflectionState, getSurpriseReaction, isPointerNearNose, nextAvatarMotionPhase, shouldAvatarBlink, shouldShowFirefly, type AvatarMotionPhase } from "./motion-state"
 import { LAMP_INTERACTION, canTriggerLampCollision, getCreatureMode, getLampCollisionSide, getLampSwingKeyframes, isNearLampBulb, nextLampPhase, type CreatureMode, type LampPhase } from "./lamp-motion-state"
+import { getAutonomousFlyBounds, getAutonomousFlyPauseDuration, getAutonomousFlyTravelDuration, getAutonomousFlyWaypoint, type CreaturePoint } from "./autonomous-creature-motion"
 
 const FIREFLY_CURSOR_CLASS = "avatar-firefly-active"
 const LAMP_AVATAR_EDGE_OPACITY = 0.46
@@ -103,6 +104,10 @@ export function setupAvatarMotion({
     let noseCollisionArmed = true
     let lastNoseHitAt = Number.NEGATIVE_INFINITY
     let noseSwingTimeline: gsap.core.Timeline | null = null
+    let autonomousFlyTween: gsap.core.Tween | null = null
+    let autonomousFlyPause: gsap.core.Tween | null = null
+    let autonomousFlyActive = false
+    const autonomousPosition: CreaturePoint = { x: 0, y: 0 }
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     const targets: gsap.utils.SelectorFunc = select
@@ -292,9 +297,12 @@ export function setupAvatarMotion({
     }
 
     const setFireflyVisible = (visible: boolean) => {
+        document.documentElement.classList.toggle(
+            FIREFLY_CURSOR_CLASS,
+            visible && creatureMode === "firefly",
+        )
         if (visible === fireflyVisible) return
         fireflyVisible = visible
-        document.documentElement.classList.toggle(FIREFLY_CURSOR_CLASS, visible)
         if (visible && creatureMode === "firefly") keepAvatarDark()
         else {
             gsap.to(trailDots, { opacity: 0, duration: 0.14, overwrite: "auto" })
@@ -367,10 +375,9 @@ export function setupAvatarMotion({
             })
     }
 
-    const updateNoseInteraction = (event: PointerEvent) => {
-        if (!avatarNose || !fireflyVisible || creatureMode !== "firefly") return
+    const updateNoseInteraction = (point: CreaturePoint) => {
+        if (!avatarNose || !fireflyVisible) return
 
-        const point = { x: event.clientX, y: event.clientY }
         const noseBounds = avatarNose.getBoundingClientRect()
         const now = performance.now()
 
@@ -394,6 +401,13 @@ export function setupAvatarMotion({
             creatureMode = getCreatureMode(lampPhase)
             setLampPhase(lampPhase)
             setCreatureMode(creatureMode)
+            stopAutonomousFly()
+            pointerInside = false
+            setFireflyVisible(false)
+            if (!reduceMotion) {
+                phase = "idle"
+                startIdle()
+            }
             stopLampFlicker()
             activateDarkTheme()
 
@@ -447,6 +461,7 @@ export function setupAvatarMotion({
         setLampPhase(lampPhase)
         creatureMode = "fly"
         setCreatureMode(creatureMode)
+        startAutonomousFly()
         stopLampFlicker()
 
         gsap.to(trailDots, { opacity: 0, duration: reduceMotion ? 0 : 0.2, overwrite: true })
@@ -473,10 +488,9 @@ export function setupAvatarMotion({
         }), LAMP_INTERACTION.activationDelayMs)
     })
 
-    const updateLampInteraction = (event: PointerEvent) => {
+    const updateLampInteraction = (point: CreaturePoint) => {
         if (!lampShade || !lampBulb || lampPhase === "activating") return
 
-        const point = { x: event.clientX, y: event.clientY }
         const shadeBounds = lampShade.getBoundingClientRect()
         const side = getLampCollisionSide(point, shadeBounds)
         const now = performance.now()
@@ -714,8 +728,117 @@ export function setupAvatarMotion({
             .to(targets(".teethBottom, .tongue"), { x: 0, y: 0, duration: 0.24 }, "<")
     })
 
+    const getTrackingMetrics = (
+        clientX: number,
+        clientY: number,
+        box: DOMRect,
+    ): PointerMetrics => {
+        const centerX = box.left + box.width / 2
+        const centerY = box.top + box.height / 2 - 60
+        const dx = gsap.utils.clamp(-20, 20, (clientX - centerX) / 16)
+        const dy = gsap.utils.clamp(-20, 20, (clientY - centerY) / 16)
+
+        return { clientX, clientY, dx, dy }
+    }
+
+    const updateCreatureTracking = (
+        localX: number,
+        localY: number,
+        box: DOMRect,
+    ) => {
+        setCursorX(localX)
+        setCursorY(localY)
+
+        if (phase === "reduced") return
+
+        if (phase !== "tracking") {
+            phase = nextAvatarMotionPhase(phase, "POINTER_MOVE")
+            killMainTimelines()
+            resetExpression()
+            startBlink()
+        }
+
+        const clientX = box.left + localX
+        const clientY = box.top + localY
+        lastPointerMetrics = getTrackingMetrics(clientX, clientY, box)
+        setEarLeftTop(lastPointerMetrics.dx < -7 ? false : lastPointerMetrics.dx > 7 ? true : null)
+        tracker.update(lastPointerMetrics)
+        updateLampInteraction({ x: clientX, y: clientY })
+        updateNoseInteraction({ x: clientX, y: clientY })
+    }
+
+    const stopAutonomousFly = () => {
+        autonomousFlyActive = false
+        autonomousFlyTween?.kill()
+        autonomousFlyPause?.kill()
+        autonomousFlyTween = null
+        autonomousFlyPause = null
+    }
+
+    const moveAutonomousFly = () => {
+        if (!autonomousFlyActive || creatureMode !== "fly" || reduceMotion) return
+
+        const box = boxAvatar.getBoundingClientRect()
+        const avatarBounds = avatar.getBoundingClientRect()
+        const bounds = getAutonomousFlyBounds(box, avatarBounds)
+        const waypoint = getAutonomousFlyWaypoint(bounds, {
+            x: Math.random(),
+            y: Math.random(),
+        })
+        const duration = getAutonomousFlyTravelDuration(autonomousPosition, waypoint)
+
+        autonomousFlyTween?.kill()
+        autonomousFlyTween = gsap.to(autonomousPosition, {
+            x: waypoint.x,
+            y: waypoint.y,
+            duration,
+            ease: "sine.inOut",
+            overwrite: true,
+            onUpdate: () => {
+                updateCreatureTracking(autonomousPosition.x, autonomousPosition.y, box)
+            },
+            onComplete: () => {
+                autonomousFlyTween = null
+                if (!autonomousFlyActive || creatureMode !== "fly") return
+                autonomousFlyPause = gsap.delayedCall(
+                    getAutonomousFlyPauseDuration(Math.random()),
+                    moveAutonomousFly,
+                )
+            },
+        })
+    }
+
+    const startAutonomousFly = () => {
+        document.documentElement.classList.remove(FIREFLY_CURSOR_CLASS)
+
+        if (autonomousFlyActive) {
+            setFireflyVisible(true)
+            return
+        }
+
+        const box = boxAvatar.getBoundingClientRect()
+        const avatarBounds = avatar.getBoundingClientRect()
+        const bounds = getAutonomousFlyBounds(box, avatarBounds)
+        const currentX = Number.parseFloat(String(gsap.getProperty(lookAt, "left")))
+        const currentY = Number.parseFloat(String(gsap.getProperty(lookAt, "top")))
+        const fallback = getAutonomousFlyWaypoint(bounds, { x: 0.68, y: 0.28 })
+
+        autonomousPosition.x = fireflyVisible && Number.isFinite(currentX) ? currentX : fallback.x
+        autonomousPosition.y = fireflyVisible && Number.isFinite(currentY) ? currentY : fallback.y
+        autonomousFlyActive = true
+        pointerInside = false
+        setFireflyVisible(true)
+        updateCreatureTracking(autonomousPosition.x, autonomousPosition.y, box)
+
+        if (!reduceMotion) moveAutonomousFly()
+    }
+
     const handlePointerMove = contextSafe((event: PointerEvent) => {
         if (event.pointerType === "touch" || phase === "reduced") return
+        if (creatureMode === "fly") {
+            document.documentElement.classList.remove(FIREFLY_CURSOR_CLASS)
+            return
+        }
 
         const box = boxAvatar.getBoundingClientRect()
         const interactionBounds = getAvatarInteractionBounds(
@@ -737,7 +860,7 @@ export function setupAvatarMotion({
         const localY = event.clientY - box.top
         setCursorX(localX)
         setCursorY(localY)
-        updateLampInteraction(event)
+        updateLampInteraction({ x: event.clientX, y: event.clientY })
 
         if (phase !== "tracking") {
             phase = nextAvatarMotionPhase(phase, "POINTER_MOVE")
@@ -763,15 +886,11 @@ export function setupAvatarMotion({
             }
 
         updateFireflyScene(localX, localY, lightPoint.x, lightPoint.y, lightIntensity)
-        updateNoseInteraction(event)
+        updateNoseInteraction({ x: event.clientX, y: event.clientY })
 
-        const centerX = box.left + box.width / 2
-        const centerY = box.top + box.height / 2 - 60
-        const dx = gsap.utils.clamp(-20, 20, (event.clientX - centerX) / 16)
-        const dy = gsap.utils.clamp(-20, 20, (event.clientY - centerY) / 16)
-        lastPointerMetrics = { clientX: event.clientX, clientY: event.clientY, dx, dy }
+        lastPointerMetrics = getTrackingMetrics(event.clientX, event.clientY, box)
 
-        setEarLeftTop(dx < -7 ? false : dx > 7 ? true : null)
+        setEarLeftTop(lastPointerMetrics.dx < -7 ? false : lastPointerMetrics.dx > 7 ? true : null)
         tracker.update(lastPointerMetrics)
     })
 
@@ -811,8 +930,11 @@ export function setupAvatarMotion({
             .to(targets(".noseBreathe"), { scaleX: 1.05, scaleY: 0.95, duration: 2, ease: "power2.inOut" })
     }
 
+    if (creatureMode === "fly") startAutonomousFly()
+
     return () => {
         window.removeEventListener("pointermove", handlePointerMove)
+        stopAutonomousFly()
         if (activationTimer !== null) window.clearTimeout(activationTimer)
         activationTimer = null
         lampSwingTimeline?.kill()

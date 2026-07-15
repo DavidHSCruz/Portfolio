@@ -29,29 +29,29 @@
         }
 
         .fireflyGlow {
-            inset: 9px 7px 8px;
-            background: var(--fly-body-color);
-            box-shadow: none;
+            inset: 9px 7px 8px !important;
+            background: var(--fly-body-color) !important;
+            box-shadow: none !important;
             opacity: 1 !important;
-            animation: none;
+            animation: none !important;
         }
 
         .fireflyCore {
-            top: 11px;
-            left: 10px;
-            width: 12px;
-            height: 10px;
-            border: 1px solid #020604;
+            top: 11px !important;
+            left: 10px !important;
+            width: 12px !important;
+            height: 10px !important;
+            border: 1px solid #020604 !important;
             border-radius: 55% 45% 60% 40%;
-            background: var(--fly-body-color);
-            box-shadow: none;
+            background: var(--fly-body-color) !important;
+            box-shadow: none !important;
         }
 
         .fireflyWingLeft,
         .fireflyWingRight {
-            border-color: #183129aa;
-            background: #0c1b1670;
-            box-shadow: inset 0 0 3px #4f6b5e22;
+            border-color: #183129aa !important;
+            background: #0c1b1670 !important;
+            box-shadow: inset 0 0 3px #4f6b5e22 !important;
         }
     }
 

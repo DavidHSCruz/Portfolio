@@ -30,12 +30,21 @@ describe("avatar lamp interaction wiring", () => {
     expect(controller).toContain("LAMP_INTERACTION.activationDelayMs");
     expect(controller).toContain("activateLightTheme()");
     expect(controller).toContain('setCreatureMode(creatureMode)');
+    expect(controller).toContain("startAutonomousFly");
+    expect(controller).toContain("stopAutonomousFly");
+    expect(controller).toContain("getAutonomousFlyWaypoint");
+    expect(controller).toContain('creatureMode === "firefly"');
     expect(controller).toContain('if (reduceMotion)');
     expect(scene).toContain("<PendantLamp");
     expect(scene).toContain('id="lamp_light_mask"');
     expect(scene).toContain("data-avatar-lamp-edges");
     expect(scene).toContain("sceneControllerRef.current?.activateLamp()");
+    expect(scene).toContain('data-creature-control={creatureMode === "fly" ? "autonomous" : "pointer"}');
     expect(styles).toContain("--fly-body-color: #07110d");
-    expect(styles).toContain("background: var(--fly-body-color)");
+    expect(styles).toContain(
+      "background: var(--fly-body-color) !important",
+    );
+    expect(styles).toContain("box-shadow: none !important");
+    expect(styles).toContain("animation: none !important");
   });
 });

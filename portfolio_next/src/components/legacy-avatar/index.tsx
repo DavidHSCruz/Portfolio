@@ -98,7 +98,13 @@ export const Avatar = () => {
     }
 
     return (
-        <div ref={containerRef} className={styles.container} data-creature-mode={creatureMode} data-lamp-phase={lampPhase}>
+        <div
+            ref={containerRef}
+            className={styles.container}
+            data-creature-mode={creatureMode}
+            data-creature-control={creatureMode === "fly" ? "autonomous" : "pointer"}
+            data-lamp-phase={lampPhase}
+        >
             <PendantLamp
                 className={styles.pendantLamp}
                 phase={lampPhase}

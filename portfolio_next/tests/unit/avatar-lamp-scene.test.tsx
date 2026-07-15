@@ -36,6 +36,8 @@ describe("interactive avatar lamp scene", () => {
     fireEvent.click(screen.getByRole("button", { name: /Acender lumin/ }));
     expect(container.querySelector("[data-avatar-pendant-lamp]")?.getAttribute("data-lamp-phase")).toBe("activating");
     expect(container.querySelector("[data-creature-mode=fly]")).not.toBeNull();
+    expect(container.querySelector("[data-creature-control=autonomous]")).not.toBeNull();
+    expect(document.documentElement.classList.contains("avatar-firefly-active")).toBe(false);
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect((container.querySelector('[data-part="beam"]') as SVGElement).style.opacity).toBe("1");
     const lampEdgeOpacity = Number.parseFloat(
@@ -55,6 +57,7 @@ describe("interactive avatar lamp scene", () => {
     fireEvent.click(screen.getByRole("button", { name: /Apagar lumin/ }));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(container.querySelector("[data-creature-mode=firefly]")).not.toBeNull();
+    expect(container.querySelector("[data-creature-control=pointer]")).not.toBeNull();
     expect(container.querySelector("[data-avatar-pendant-lamp]")?.getAttribute("data-lamp-phase")).toBe("off");
   });
 });
