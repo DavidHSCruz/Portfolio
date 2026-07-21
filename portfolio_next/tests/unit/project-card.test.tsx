@@ -15,5 +15,10 @@ describe("ProjectCard", () => {
     expect(screen.getByRole("link", { name: /projeto secreto/i }).getAttribute("href")).toBe("/projetos/projeto-secreto");
     expect(screen.getByText("Privado")).toBeTruthy();
     expect(screen.getByText("NEXT.JS")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /projeto secreto/i })
+        .querySelector("[data-project-image]"),
+    ).not.toBeNull();
   });
 });

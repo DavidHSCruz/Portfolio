@@ -23,6 +23,7 @@ describe("SiteThemeProvider", () => {
     );
 
     expect(screen.getByRole("button", { name: "dark" })).not.toBeNull();
+    expect(document.querySelector("[data-theme-transition-layer]")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "dark" }));
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));

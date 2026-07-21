@@ -129,6 +129,43 @@ a, button { outline: none; }
   100% { opacity: 0; }
 }
 
+body::after {
+  content: none;
+}
+
+html.theme-transitioning body::after {
+  animation: none;
+}
+
+.theme-transition-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: none;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  mix-blend-mode: soft-light;
+  will-change: clip-path, opacity;
+}
+
+[data-motion-title],
+[data-motion-body],
+[data-motion-item],
+[data-process-step],
+[data-project-image] {
+  will-change: transform, opacity;
+}
+
+[data-project-card] {
+  backface-visibility: hidden;
+  transform-origin: center;
+}
+
+[data-project-transition-overlay] {
+  will-change: left, top, width, height, opacity, border-radius;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;

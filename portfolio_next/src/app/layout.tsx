@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer";
 import { ChatAssistant } from "@/components/chat-assistant";
 import { MobileContact } from "@/components/mobile-contact";
 import { SiteThemeProvider } from "@/components/site-theme";
+import { ProjectTransitionProvider } from "@/components/project-transition";
 import { getSiteUrl, site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -35,11 +36,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="pt-BR" data-scroll-behavior="smooth" data-theme="dark">
       <body>
         <SiteThemeProvider>
-          <Header />
-          {children}
-          <Footer />
-          <ChatAssistant />
-          <MobileContact />
+          <ProjectTransitionProvider>
+            <Header />
+            {children}
+            <Footer />
+            <ChatAssistant />
+            <MobileContact />
+          </ProjectTransitionProvider>
         </SiteThemeProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       </body>
