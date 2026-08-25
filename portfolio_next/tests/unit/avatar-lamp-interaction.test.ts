@@ -26,6 +26,8 @@ describe("avatar lamp interaction wiring", () => {
     expect(controller).toContain("gsap.set(lampBeam, { opacity: 1 })");
     expect(controller).toContain("getLampSwingKeyframes");
     expect(controller).toContain("startNoseSwing");
+    expect(controller).toContain('querySelectorAll<SVGRectElement>(".nose")');
+    expect(controller).toContain(".to(avatarNoses,");
     expect(controller).toContain("isPointerNearNose");
     expect(controller).toContain("LAMP_INTERACTION.activationDelayMs");
     expect(controller).toContain("activateLightTheme()");

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
+import { shouldRevealImmediately } from "@/lib/motion/reveal";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -88,6 +89,21 @@ export function MotionShell({ children }: { children: ReactNode }) {
           }
 
           sections.forEach((section) => {
+            const revealTargets = section.querySelectorAll(REVEAL_SELECTOR);
+
+            if (
+              shouldRevealImmediately(
+                section.getBoundingClientRect().top,
+                window.innerHeight,
+              )
+            ) {
+              gsap.set(revealTargets, {
+                autoAlpha: 1,
+                clearProps: "transform,opacity,visibility",
+              });
+              return;
+            }
+
             const eyebrow = section.querySelectorAll("[data-motion-eyebrow]");
             const title = section.querySelectorAll("[data-motion-title]");
             const body = section.querySelectorAll("[data-motion-body]");

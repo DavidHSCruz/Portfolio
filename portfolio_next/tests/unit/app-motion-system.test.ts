@@ -18,6 +18,8 @@ describe("app motion system", () => {
     expect(motion).toContain("gsap.matchMedia()");
     expect(motion).toContain("prefers-reduced-motion: reduce");
     expect(motion).toContain('toggleActions: "play none none none"');
+    expect(motion).toContain("shouldRevealImmediately");
+    expect(motion).toContain('clearProps: "transform,opacity,visibility"');
     expect(motion).toContain("data-motion-section");
   });
 

@@ -138,7 +138,8 @@ export function setupAvatarMotion({
     const avatarLightExposure = avatar.querySelector<SVGUseElement>("[data-avatar-light-exposure]")
     const avatarFeatureEdges = avatar.querySelector<SVGGElement>("[data-avatar-feature-edges]")
     const avatarLampEdges = avatar.querySelector<SVGUseElement>("[data-avatar-lamp-edges]")
-    const avatarNose = avatar.querySelector<SVGRectElement>(".nose")
+    const avatarNoses = Array.from(avatar.querySelectorAll<SVGRectElement>(".nose"))
+    const avatarNose = avatarNoses[0] ?? null
     const avatarLightLayers = Array.from(avatar.querySelectorAll<SVGElement>("[data-avatar-light-layer]"))
     const avatarLightGradient = avatar.querySelector<SVGRadialGradientElement>("[data-firefly-light-gradient]")
     const avatarEyeReflections = [
@@ -368,7 +369,7 @@ export function setupAvatarMotion({
         if (reduceMotion || !avatarNose) return
         noseSwingTimeline?.kill()
         noseSwingTimeline = gsap.timeline()
-            .to(avatarNose, {
+            .to(avatarNoses, {
                 keyframes: AVATAR_NOSE_SWING_KEYFRAMES,
                 transformOrigin: "50% 0%",
                 overwrite: "auto",
