@@ -101,15 +101,15 @@ export function resolveChatActions(ids: unknown): ChatAction[] {
 }
 
 export function parseChatModelResponse(rawResponse: string | undefined, message: string) {
-  const fallbackContent = rawResponse?.trim() || "Não consegui formular uma resposta agora.";
+  if (!rawResponse?.trim()) return null;
 
   try {
-    const parsed = JSON.parse(fallbackContent) as { content?: unknown; actions?: unknown };
-    const content = typeof parsed.content === "string" && parsed.content.trim() ? parsed.content.trim() : "Não consegui formular uma resposta agora.";
+    const parsed = JSON.parse(rawResponse) as { content?: unknown; actions?: unknown };
+    if (typeof parsed.content !== "string" || !parsed.content.trim()) return null;
+
     const actionIds = getContextualActionIds(message, parsed.actions);
-    return { content, actions: resolveChatActions(actionIds) };
+    return { content: parsed.content.trim(), actions: resolveChatActions(actionIds) };
   } catch {
-    const actionIds = getContextualActionIds(message, []);
-    return { content: fallbackContent, actions: resolveChatActions(actionIds) };
+    return null;
   }
 }

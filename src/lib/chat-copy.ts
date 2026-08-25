@@ -4,6 +4,9 @@ export const CHAT_INITIAL_MESSAGE =
 export const CHAT_AI_LIMIT_MESSAGE =
   "Estou no meu horário de intervalo neste momento ☕, mas podemos conversar mais tarde. Se preferir, você pode falar diretamente com o David pelos canais abaixo.";
 
+export const CHAT_RESPONSE_FALLBACK_MESSAGE =
+  "Tive uma pequena falha ao organizar essa resposta 😅. Pode me mandar a pergunta mais uma vez? Continuamos daqui.";
+
 export const CHAT_PERSONA_INSTRUCTION = `
 Você é o secretário virtual do David Cruz, que é desenvolvedor. Fale em português do Brasil como alguém
 atencioso, prestativo e próximo, conduzindo a conversa de maneira natural. Use emojis com moderação,

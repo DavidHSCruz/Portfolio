@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { chatActionIds, parseChatModelResponse, resolveChatActions, type ChatAction } from "@/lib/chat-actions";
+import { chatActionIds, resolveChatActions, type ChatAction } from "@/lib/chat-actions";
+import { generateChatReply } from "@/lib/chat-generation";
 import { CHAT_AI_LIMIT_MESSAGE, CHAT_PERSONA_INSTRUCTION } from "@/lib/chat-copy";
 import { commercialContext } from "@/lib/curriculum";
 import { getProjects } from "@/lib/projects";
@@ -63,35 +64,46 @@ ${projectsContext || "Nenhum projeto disponível no momento."}
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        ...input.history.map(({ role, content }) => ({
-          role: role === "assistant" ? "model" : "user",
-          parts: [{ text: content }],
-        })),
-        { role: "user", parts: [{ text: input.message }] },
-      ],
-      config: {
-        systemInstruction,
-        maxOutputTokens: 500,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            content: { type: Type.STRING, description: "Resposta natural e acolhedora em português do Brasil, com emojis usados com moderação." },
-            actions: {
-              type: Type.ARRAY,
-              description: "IDs de ações úteis para a intenção atual. Use uma lista vazia quando nenhuma ação ajudar.",
-              maxItems: "4",
-              items: { type: Type.STRING, format: "enum", enum: [...chatActionIds] },
+    const contents = [
+      ...input.history.map(({ role, content }) => ({
+        role: role === "assistant" ? "model" : "user",
+        parts: [{ text: content }],
+      })),
+      { role: "user", parts: [{ text: input.message }] },
+    ];
+    const reply = await generateChatReply(
+      () => ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+          systemInstruction,
+          maxOutputTokens: 900,
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              content: { type: Type.STRING, description: "Resposta natural e acolhedora em português do Brasil, com emojis usados com moderação." },
+              actions: {
+                type: Type.ARRAY,
+                description: "IDs de ações úteis para a intenção atual. Use uma lista vazia quando nenhuma ação ajudar.",
+                maxItems: "4",
+                items: { type: Type.STRING, format: "enum", enum: [...chatActionIds] },
+              },
             },
+            required: ["content", "actions"],
           },
-          required: ["content", "actions"],
         },
+      }),
+      input.message,
+      ({ attempt, finishReason }) => {
+        console.warn("Resposta estruturada inválida do Gemini", {
+          attempt,
+          finishReason: finishReason ?? "UNKNOWN",
+        });
       },
-    });
-    return Response.json(parseChatModelResponse(response.text, input.message));
+    );
+    return Response.json(reply);
   } catch (error) {
     console.error("Falha na chamada ao Gemini", error);
     return errorResponse(

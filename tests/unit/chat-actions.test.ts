@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getContextualActionIds, resolveChatActions } from "@/lib/chat-actions";
+import { getContextualActionIds, parseChatModelResponse, resolveChatActions } from "@/lib/chat-actions";
 
 describe("ações contextuais do chat", () => {
   it("oferece todos os canais para uma pergunta ampla de contato", () => {
@@ -23,5 +23,9 @@ describe("ações contextuais do chat", () => {
       expect.objectContaining({ id: "whatsapp", href: expect.stringContaining("https://wa.me/") }),
       expect.objectContaining({ id: "phone", label: expect.stringContaining("(41) 99949-7870"), href: "tel:+5541999497870" }),
     ]);
+  });
+
+  it("rejeita JSON incompleto sem expor o conteúdo bruto", () => {
+    expect(parseChatModelResponse('{"content":', "Preciso de ajuda")).toBeNull();
   });
 });
