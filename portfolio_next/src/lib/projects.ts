@@ -5,6 +5,8 @@ import { unstable_cache } from "next/cache";
 import type { Project } from "@/types/project";
 import { isEligibleProject, toSlug } from "@/lib/project-rules";
 import { listOwnerRepositories, type RepositoryClient } from "@/lib/github-repositories";
+import { shouldUseProjectCache } from "@/lib/project-cache";
+import { getProjectImage } from "@/lib/project-images";
 
 type GitHubRepository = RestEndpointMethodTypes["repos"]["listForAuthenticatedUser"]["response"]["data"][number];
 
@@ -28,9 +30,7 @@ async function fetchProjects(): Promise<Project[]> {
       slug: toSlug(repo.name),
       description: repo.description || "Projeto em evolução. Confira os detalhes e tecnologias utilizadas.",
       tags: repo.topics?.map((tag) => tag.toUpperCase()) ?? [],
-      image: repo.private
-        ? `/imagens/Projetos/${repo.name}.png`
-        : `https://raw.githubusercontent.com/${username}/${repo.name}/refs/heads/main/public/assets/images/capa.png`,
+      image: getProjectImage(repo.name, repo.private, username),
       language: repo.language ?? null,
       url: repo.private ? null : repo.html_url,
       private: repo.private,
@@ -47,7 +47,9 @@ const getCachedProjects = unstable_cache(fetchProjects, ["eligible-github-projec
 
 export async function getProjects() {
   try {
-    return await getCachedProjects();
+    return shouldUseProjectCache(process.env.NODE_ENV)
+      ? await getCachedProjects()
+      : await fetchProjects();
   } catch (error) {
     console.error("Falha ao carregar projetos do GitHub", error);
     return [];
