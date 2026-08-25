@@ -5,7 +5,10 @@ import { unstable_cache } from "next/cache";
 import type { Project } from "@/types/project";
 import { isEligibleProject, toSlug } from "@/lib/project-rules";
 import { listOwnerRepositories, type RepositoryClient } from "@/lib/github-repositories";
-import { shouldUseProjectCache } from "@/lib/project-cache";
+import {
+  getProjectCacheVariant,
+  shouldUseProjectCache,
+} from "@/lib/project-cache";
 import { getProjectImage } from "@/lib/project-images";
 
 type GitHubRepository = RestEndpointMethodTypes["repos"]["listForAuthenticatedUser"]["response"]["data"][number];
@@ -40,15 +43,19 @@ async function fetchProjects(): Promise<Project[]> {
     .filter(isEligibleProject);
 }
 
-const getCachedProjects = unstable_cache(fetchProjects, ["eligible-github-projects"], {
-  revalidate: 3600,
-  tags: ["github-projects"],
-});
+const getCachedProjects = unstable_cache(
+  async (cacheVariant: string) => {
+    void cacheVariant;
+    return fetchProjects();
+  },
+  ["eligible-github-projects"],
+  { revalidate: 3600, tags: ["github-projects"] },
+);
 
 export async function getProjects() {
   try {
     return shouldUseProjectCache(process.env.NODE_ENV)
-      ? await getCachedProjects()
+      ? await getCachedProjects(getProjectCacheVariant(process.env.GITHUB_TOKEN))
       : await fetchProjects();
   } catch (error) {
     console.error("Falha ao carregar projetos do GitHub", error);

@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { HiArrowUp, HiChatBubbleLeftRight, HiXMark } from "react-icons/hi2";
 
@@ -10,6 +10,7 @@ declare global {
     turnstile?: {
       render: (container: HTMLElement, options: { sitekey: string; callback: (token: string) => void; "expired-callback": () => void; theme: string; size: string }) => string;
       reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
     };
   }
 }
@@ -29,14 +30,7 @@ export function ChatAssistant() {
   const widgetRef = useRef<string | null>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [open]);
-
-  function renderChallenge() {
+  const renderChallenge = useCallback(() => {
     if (!siteKey || !challengeRef.current || !window.turnstile || widgetRef.current) return;
     widgetRef.current = window.turnstile.render(challengeRef.current, {
       sitekey: siteKey,
@@ -45,6 +39,33 @@ export function ChatAssistant() {
       theme: "dark",
       size: "flexible",
     });
+  }, [siteKey]);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !siteKey) return;
+
+    const frame = window.requestAnimationFrame(renderChallenge);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      const widgetId = widgetRef.current;
+      if (widgetId && window.turnstile) {
+        window.turnstile.remove(widgetId);
+      }
+      widgetRef.current = null;
+    };
+  }, [open, renderChallenge, siteKey]);
+
+  function openChat() {
+    setToken(process.env.NODE_ENV === "development" ? "dev-token" : "");
+    setOpen(true);
   }
 
   async function submit(event: FormEvent) {
@@ -74,7 +95,7 @@ export function ChatAssistant() {
 
   return <>
     {siteKey && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={renderChallenge} />}
-    <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-40 hidden size-15 place-items-center rounded-full border border-mint/30 bg-panel text-mint shadow-glow transition hover:scale-105 hover:bg-mint hover:text-ink md:grid" aria-label="Abrir assistente comercial"><HiChatBubbleLeftRight size={26} /></button>
+    <button onClick={openChat} className="fixed bottom-6 right-6 z-40 hidden size-15 place-items-center rounded-full border border-mint/30 bg-panel text-mint shadow-glow transition hover:scale-105 hover:bg-mint hover:text-ink md:grid" aria-label="Abrir assistente comercial"><HiChatBubbleLeftRight size={26} /></button>
     {open && <div className="fixed inset-0 z-[60] flex items-end justify-end bg-ink/60 p-0 backdrop-blur-sm md:p-6" onMouseDown={(event) => event.currentTarget === event.target && setOpen(false)}>
       <section role="dialog" aria-modal="true" aria-label="Assistente comercial" className="flex h-[min(760px,92dvh)] w-full flex-col overflow-hidden rounded-t-3xl border border-cloud/10 bg-panel shadow-2xl md:w-[420px] md:rounded-3xl">
         <header className="flex items-center justify-between border-b border-cloud/8 p-5"><div><p className="font-black">Assistente do David</p><p className="mt-1 flex items-center gap-2 text-xs text-muted"><span className="size-2 rounded-full bg-mint" /> online para orientar</p></div><button onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full border border-cloud/10 hover:text-mint" aria-label="Fechar assistente"><HiXMark size={22} /></button></header>
