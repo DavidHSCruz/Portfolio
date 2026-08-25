@@ -58,6 +58,7 @@ function MessageActions({ actions }: { actions?: ChatAction[] }) {
 export function ChatAssistant() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
+  const messagesRef = useRef<Message[]>([initialMessage]);
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(process.env.NODE_ENV === "development" ? "dev-token" : "");
@@ -108,20 +109,33 @@ export function ChatAssistant() {
   }, [open, renderChallenge, siteKey]);
 
   const sendMessage = useCallback(async (message: string, verifiedToken: string) => {
+    const history = messagesRef.current.slice(1).slice(-6).map(({ role, content }) => ({ role, content }));
+    const appendMessage = (nextMessage: Message) => {
+      setMessages((items) => {
+        const nextMessages = [...items, nextMessage];
+        messagesRef.current = nextMessages;
+        return nextMessages;
+      });
+    };
+
     setValue("");
     setLoading(true);
-    setMessages((items) => [...items, { role: "user", content: message }]);
+    appendMessage({ role: "user", content: message });
     try {
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, turnstileToken: verifiedToken }) });
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, turnstileToken: verifiedToken, history }),
+      });
       const data = (await response.json()) as { content?: string; actions?: ChatAction[]; error?: { message?: string } };
       const content = response.ok ? data.content : data.error?.message;
-      setMessages((items) => [...items, {
+      appendMessage({
         role: "assistant",
         content: content || "Não consegui responder agora. Você também pode usar os contatos da página.",
         actions: data.actions,
-      }]);
+      });
     } catch {
-      setMessages((items) => [...items, { role: "assistant", content: "A conexão falhou por aqui 😕. Tente novamente ou fale diretamente com o David pelo WhatsApp." }]);
+      appendMessage({ role: "assistant", content: "A conexão falhou por aqui 😕. Tente novamente ou fale diretamente com o David pelo WhatsApp." });
     } finally {
       setLoading(false);
       if (widgetRef.current && window.turnstile) window.turnstile.reset(widgetRef.current);

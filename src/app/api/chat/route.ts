@@ -65,7 +65,13 @@ ${projectsContext || "Nenhum projeto disponível no momento."}
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: input.message,
+      contents: [
+        ...input.history.map(({ role, content }) => ({
+          role: role === "assistant" ? "model" : "user",
+          parts: [{ text: content }],
+        })),
+        { role: "user", parts: [{ text: input.message }] },
+      ],
       config: {
         systemInstruction,
         maxOutputTokens: 500,

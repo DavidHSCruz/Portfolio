@@ -60,12 +60,26 @@ describe("ChatAssistant", () => {
     renderChallenge.mock.calls[0]?.[1].callback("verified-token");
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(request.body as string)).toEqual({ message: "Olá", turnstileToken: "verified-token" });
+    expect(JSON.parse(request.body as string)).toEqual({
+      message: "Olá",
+      turnstileToken: "verified-token",
+      history: [],
+    });
     expect(await screen.findByText("Você pode falar diretamente com o David.")).toBeTruthy();
     expect(screen.getByRole("link", { name: /conversar no whatsapp/i }).getAttribute("href")).toBe("https://wa.me/5541999497870");
     expect(screen.getByRole("link", { name: /telefone: \(41\) 99949-7870/i }).getAttribute("href")).toBe("tel:+5541999497870");
     expect(screen.getByRole("link", { name: /ver linkedin/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /ver github/i })).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "E como ele trabalha?" } });
+    fireEvent.click(screen.getByRole("button", { name: /enviar mensagem/i }));
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+    renderChallenge.mock.calls[0]?.[1].callback("second-token");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const secondRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(secondRequest.body as string).history).toEqual([
+      { role: "user", content: "Olá" },
+      { role: "assistant", content: "Você pode falar diretamente com o David." },
+    ]);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(remove).toHaveBeenCalledWith("widget-id");
   });

@@ -7,6 +7,8 @@ describe("personalidade do secretário virtual", () => {
     expect(CHAT_INITIAL_MESSAGE).toContain("👋");
     expect(CHAT_PERSONA_INSTRUCTION).toMatch(/secretário virtual do David/i);
     expect(CHAT_PERSONA_INSTRUCTION).toMatch(/emojis com moderação/i);
+    expect(CHAT_PERSONA_INSTRUCTION).toMatch(/interface já apresentou o cumprimento inicial/i);
+    expect(CHAT_PERSONA_INSTRUCTION).toMatch(/não comece respostas com "olá"/i);
   });
 
   it("trata o limite como um intervalo temporário", () => {
